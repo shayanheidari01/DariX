@@ -9,9 +9,9 @@ import (
 
 type Lexer struct {
 	input        string
-	position     int  // current position in input (points to current char)
-	readPosition int  // current reading position in input (after current char)
-	ch           byte // current char under examination
+	position     int  // current position
+	readPosition int  // next reading position
+	ch           byte // current char
 }
 
 func New(input string) *Lexer {
@@ -32,137 +32,82 @@ func (l *Lexer) readChar() {
 
 func (l *Lexer) peekChar() byte {
 	if l.readPosition >= len(l.input) {
-		return 0 // یا هر مقدار دیگری که نشان‌دهنده EOF است
+		return 0
 	}
 	return l.input[l.readPosition]
 }
 
-func (l *Lexer) peekTwoChars() byte {
-	// بررسی اینکه آیا readPosition+1 از طول رشته کمتر است
-	if l.readPosition+1 >= len(l.input) {
-		return 0 // یا هر مقدار دیگری که نشان‌دهنده EOF است
+func (l *Lexer) peekCharAt(offset int) byte {
+	pos := l.readPosition + offset - 1
+	if pos >= len(l.input) {
+		return 0
 	}
-	return l.input[l.readPosition+1]
-}
-
-// پرش separator خطی '--- ... ---'
-func (l *Lexer) skipSeparator() {
-	for l.ch != '\n' && l.ch != 0 {
-		l.readChar()
-	}
+	return l.input[pos]
 }
 
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 
-	// حذف کامنت‌ها و جداکننده‌ها قبل از هر توکن‌سازی
-	for {
-		if l.ch == '/' && l.peekChar() == '/' && l.peekTwoChars() == '-' {
-			l.skipSeparator()
-			l.skipWhitespace()
-			continue
-		}
-		if l.ch == '/' && l.peekChar() == '/' {
-			l.skipUntilNewline()
-			l.skipWhitespace()
-			continue
-		}
-		if l.ch == '/' && l.peekChar() == '*' {
-			l.readChar()
-			l.readChar()
-			l.skipBlockComment()
-			l.skipWhitespace()
-			continue
-		}
-		break
-	}
-
-	l.skipWhitespace()
+	// Skip comments and whitespace
+	l.skipCommentsAndWhitespace()
 
 	switch l.ch {
 	case '=':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			tok = token.Token{Type: token.EQ, Literal: string(ch) + string(l.ch)}
-		} else {
-			tok = newToken(token.ASSIGN, l.ch)
-		}
+		tok = l.makeTwoCharToken('=', token.EQ, token.ASSIGN)
 	case '+':
-		tok = newToken(token.PLUS, l.ch)
+		tok = l.newToken(token.PLUS)
 	case '-':
-		tok = newToken(token.MINUS, l.ch)
+		tok = l.newToken(token.MINUS)
 	case '!':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			tok = token.Token{Type: token.NOT_EQ, Literal: string(ch) + string(l.ch)}
-		} else {
-			tok = newToken(token.BANG, l.ch)
-		}
+		tok = l.makeTwoCharToken('=', token.NOT_EQ, token.BANG)
 	case '/':
-		tok = newToken(token.SLASH, l.ch)
+		tok = l.newToken(token.SLASH)
 	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
+		tok = l.newToken(token.ASTERISK)
 	case '%':
-		tok = newToken(token.MODULO, l.ch)
+		tok = l.newToken(token.MODULO)
 	case '<':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			tok = token.Token{Type: token.LE, Literal: string(ch) + string(l.ch)}
-		} else {
-			tok = newToken(token.LT, l.ch)
-		}
+		tok = l.makeTwoCharToken('=', token.LE, token.LT)
 	case '>':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			tok = token.Token{Type: token.GE, Literal: string(ch) + string(l.ch)}
-		} else {
-			tok = newToken(token.GT, l.ch)
-		}
+		tok = l.makeTwoCharToken('=', token.GE, token.GT)
 	case '&':
 		if l.peekChar() == '&' {
-			ch := l.ch
 			l.readChar()
-			tok = token.Token{Type: token.AND, Literal: string(ch) + string(l.ch)}
+			tok = token.Token{Type: token.AND, Literal: "&&"}
 		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+			tok = l.newToken(token.ILLEGAL)
 		}
 	case '|':
 		if l.peekChar() == '|' {
-			ch := l.ch
 			l.readChar()
-			tok = token.Token{Type: token.OR, Literal: string(ch) + string(l.ch)}
+			tok = token.Token{Type: token.OR, Literal: "||"}
 		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+			tok = l.newToken(token.ILLEGAL)
 		}
 	case ',':
-		tok = newToken(token.COMMA, l.ch)
+		tok = l.newToken(token.COMMA)
 	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
+		tok = l.newToken(token.SEMICOLON)
 	case ':':
-		tok = newToken(token.COLON, l.ch)
+		tok = l.newToken(token.COLON)
 	case '(':
-		tok = newToken(token.LPAREN, l.ch)
+		tok = l.newToken(token.LPAREN)
 	case ')':
-		tok = newToken(token.RPAREN, l.ch)
+		tok = l.newToken(token.RPAREN)
 	case '{':
-		tok = newToken(token.LBRACE, l.ch)
+		tok = l.newToken(token.LBRACE)
 	case '}':
-		tok = newToken(token.RBRACE, l.ch)
+		tok = l.newToken(token.RBRACE)
 	case '[':
-		tok = newToken(token.LBRACKET, l.ch)
+		tok = l.newToken(token.LBRACKET)
 	case ']':
-		tok = newToken(token.RBRACKET, l.ch)
+		tok = l.newToken(token.RBRACKET)
 	case '"':
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
 		return tok
 	case 0:
-		tok.Literal = ""
-		tok.Type = token.EOF
+		tok = token.Token{Type: token.EOF, Literal: ""}
 	default:
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
@@ -178,7 +123,7 @@ func (l *Lexer) NextToken() token.Token {
 			tok.Literal = number
 			return tok
 		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+			tok = l.newToken(token.ILLEGAL)
 		}
 	}
 
@@ -186,41 +131,28 @@ func (l *Lexer) NextToken() token.Token {
 	return tok
 }
 
-// skipBlockComment skips a '*/' terminated comment
-func (l *Lexer) skipBlockComment() {
+// Optimized comment and whitespace skipping
+func (l *Lexer) skipCommentsAndWhitespace() {
 	for {
-		if l.ch == 0 {
-			break
-		}
-		if l.ch == '*' && l.peekChar() == '/' {
-			l.readChar()
-			l.readChar()
-			break
-		}
-		l.readChar()
-	}
-}
+		l.skipWhitespace()
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
-	return token.Token{Type: tokenType, Literal: string(ch)}
-}
-
-// Helper: خواندن یک عدد صحیح یا اعشاری (یک نقطه فقط)
-func (l *Lexer) readNumber() string {
-	pos := l.position
-	// خواندن ارقام اولیه
-	for isDigit(l.ch) {
-		l.readChar()
-	}
-	// اگر نقطه دیدیم و بعد از آن هم رقم داریم، ادامه بده (برای اعداد اعشاری)
-	// استفاده از peekChar به‌روز شده
-	if l.ch == '.' && isDigit(l.peekChar()) {
-		l.readChar() // خواندن '.'
-		for isDigit(l.ch) {
-			l.readChar() // خواندن ارقام اعشاری
+		if l.ch == '/' {
+			next := l.peekChar()
+			if next == '/' {
+				// Check for separator comment
+				if l.peekCharAt(2) == '-' {
+					l.skipSeparator()
+				} else {
+					l.skipLineComment()
+				}
+				continue
+			} else if next == '*' {
+				l.skipBlockComment()
+				continue
+			}
 		}
+		break
 	}
-	return l.input[pos:l.position]
 }
 
 func (l *Lexer) skipWhitespace() {
@@ -229,52 +161,127 @@ func (l *Lexer) skipWhitespace() {
 	}
 }
 
-// skipUntilNewline skips until newline or EOF
-func (l *Lexer) skipUntilNewline() {
+func (l *Lexer) skipLineComment() {
 	for l.ch != '\n' && l.ch != 0 {
 		l.readChar()
 	}
 }
 
-func (l *Lexer) readString() string {
-	// موقعیت اولین " را ذخیره کن (برای رفرنس)
-	// startPosition := l.position // ممکن است برای دیباگ لازم باشد
-
-	// برو به کاراکتر بعدی (اولین کاراکتر از محتوای رشته)
-	// pos موقعیت اولین کاراکتر از محتوای رشته است
-	pos := l.position + 1
-	l.readChar()
-
-	// خواندن کاراکترهای محتوای رشته تا به " برسیم یا EOF
-	for l.ch != '"' && l.ch != 0 {
+func (l *Lexer) skipSeparator() {
+	for l.ch != '\n' && l.ch != 0 {
 		l.readChar()
 	}
-	// در این نقطه l.ch یا '"' است یا 0 (EOF)
-	// مقدار رشته بین " اول و " آخر (یا EOF) است
-	value := l.input[pos:l.position]
+}
 
-	// اگر " پیدا کردیم، برو به کاراکتر بعد از "
-	// این مهم است تا توکن بعدی (در اینجا ')') را در NextToken ببینیم.
-	// اگر EOF پیدا کردیم، l.readChar() کاری نمی‌کند چون l.ch == 0 است.
+func (l *Lexer) skipBlockComment() {
+	l.readChar() // skip '/'
+	l.readChar() // skip '*'
+
+	for {
+		if l.ch == 0 {
+			break
+		}
+		if l.ch == '*' && l.peekChar() == '/' {
+			l.readChar() // skip '*'
+			l.readChar() // skip '/'
+			break
+		}
+		l.readChar()
+	}
+}
+
+// Optimized token creation helpers
+func (l *Lexer) newToken(tokenType token.TokenType) token.Token {
+	return token.Token{Type: tokenType, Literal: string(l.ch)}
+}
+
+func (l *Lexer) makeTwoCharToken(secondChar byte, twoCharType, oneCharType token.TokenType) token.Token {
+	if l.peekChar() == secondChar {
+		ch := l.ch
+		l.readChar()
+		return token.Token{Type: twoCharType, Literal: string(ch) + string(l.ch)}
+	}
+	return l.newToken(oneCharType)
+}
+
+// Optimized number reading with single pass
+func (l *Lexer) readNumber() string {
+	pos := l.position
+
+	// Read digits
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+
+	// Check for decimal point
+	if l.ch == '.' && isDigit(l.peekChar()) {
+		l.readChar() // consume '.'
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+	}
+
+	return l.input[pos:l.position]
+}
+
+// Optimized string reading with escape sequence support
+func (l *Lexer) readString() string {
+	var result strings.Builder
+	l.readChar() // skip opening quote
+
+	for l.ch != '"' && l.ch != 0 {
+		if l.ch == '\\' {
+			l.readChar() // consume backslash
+			// Check if we've reached end of input after backslash
+			if l.ch == 0 {
+				// Unterminated string with trailing backslash
+				result.WriteByte('\\')
+				break
+			}
+			switch l.ch {
+			case 'n':
+				result.WriteByte('\n')
+			case 't':
+				result.WriteByte('\t')
+			case 'r':
+				result.WriteByte('\r')
+			case '\\':
+				result.WriteByte('\\')
+			case '"':
+				result.WriteByte('"')
+			default:
+				// For unknown escape sequences, include the backslash
+				result.WriteByte('\\')
+				result.WriteByte(l.ch)
+			}
+			// Advance after processing escape sequence
+			l.readChar()
+		} else {
+			result.WriteByte(l.ch)
+			// Advance for normal characters
+			l.readChar()
+		}
+	}
+
+	// Move past closing quote if found
 	if l.ch == '"' {
 		l.readChar()
 	}
-	// در غیر این صورت، l.ch == 0 است (EOF) و l.readChar() آخرین بار 0 را در l.ch نگه داشته.
-	// موقعیت‌ها به درستی به‌روز شده‌اند.
 
-	return value
+	return result.String()
 }
 
 func (l *Lexer) readIdentifier() string {
 	pos := l.position
-	for isLetter(l.ch) {
+	for isLetter(l.ch) || isDigit(l.ch) { // Allow digits in identifiers after first char
 		l.readChar()
 	}
 	return l.input[pos:l.position]
 }
 
+// Optimized character type checking
 func isLetter(ch byte) bool {
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+	return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ch == '_'
 }
 
 func isDigit(ch byte) bool {

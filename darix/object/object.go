@@ -27,11 +27,17 @@ const (
 	MAP_OBJ          = "MAP"
 	BUILTIN_OBJ      = "BUILTIN"
 	HASH_OBJ         = "HASH"
+	// Exception types
+	EXCEPTION_OBJ   = "EXCEPTION"
+	STACK_TRACE_OBJ = "STACK_TRACE"
 )
 
 const (
 	BREAK_SIGNAL    = "BREAK_SIGNAL"
 	CONTINUE_SIGNAL = "CONTINUE_SIGNAL"
+	// Exception control signals
+	EXCEPTION_SIGNAL = "EXCEPTION_SIGNAL"
+	FINALLY_SIGNAL   = "FINALLY_SIGNAL"
 )
 
 type Object interface {
@@ -68,11 +74,32 @@ var (
 	}
 )
 
+// Pool for small integers (0-255) for better performance
+var (
+	smallIntegers [256]*Integer
+	integerPool   = sync.Pool{
+		New: func() interface{} {
+			return &Integer{}
+		},
+	}
+)
+
+// Initialize small integer cache
+func init() {
+	for i := 0; i < 256; i++ {
+		smallIntegers[i] = &Integer{Value: int64(i)}
+	}
+}
+
 type Integer struct {
 	Value int64
 }
 
 func NewInteger(value int64) *Integer {
+	// Use cached small integers for better performance
+	if value >= 0 && value < 256 {
+		return smallIntegers[value]
+	}
 	return &Integer{Value: value}
 }
 
@@ -322,6 +349,24 @@ func (e *Environment) Set(name string, val Object) Object {
 	return val
 }
 
+// Update updates an existing variable in the scope where it was defined
+func (e *Environment) Update(name string, val Object) bool {
+	// First check current scope
+	if _, exists := e.store[name]; exists {
+		if oldVal := e.store[name]; oldVal != val {
+			oldVal.Free()
+		}
+		e.store[name] = val
+		return true
+	}
+	// If not found in current scope, check outer scope
+	if e.outer != nil {
+		return e.outer.Update(name, val)
+	}
+	// Variable not found in any scope
+	return false
+}
+
 // تابع Free برای Environment اضافه نشده است زیرا معمولاً توسط
 // مکانیزم scope management در interpreter مدیریت می‌شود.
 
@@ -469,3 +514,124 @@ var (
 func GetNull() Object {
 	return NULL
 }
+
+// ===== EXCEPTION SYSTEM =====
+
+// StackFrame represents a single frame in the call stack
+type StackFrame struct {
+	Function string
+	File     string
+	Line     int
+	Column   int
+}
+
+func (sf *StackFrame) String() string {
+	return fmt.Sprintf("  at %s (%s:%d:%d)", sf.Function, sf.File, sf.Line, sf.Column)
+}
+
+// StackTrace represents the call stack
+type StackTrace struct {
+	Frames []*StackFrame
+}
+
+func (st *StackTrace) Type() ObjectType { return STACK_TRACE_OBJ }
+func (st *StackTrace) Inspect() string {
+	var out strings.Builder
+	out.WriteString("Stack trace:\n")
+	for _, frame := range st.Frames {
+		out.WriteString(frame.String())
+		out.WriteString("\n")
+	}
+	return out.String()
+}
+func (st *StackTrace) Free() {
+	st.Frames = nil
+}
+
+// Exception represents a runtime exception
+type Exception struct {
+	ExceptionType string      // Exception type (e.g., "ValueError", "TypeError")
+	Message       string      // Error message
+	StackTrace    *StackTrace // Call stack
+	Cause         *Exception  // Chained exception
+}
+
+func (e *Exception) Type() ObjectType { return EXCEPTION_OBJ }
+func (e *Exception) Inspect() string {
+	var out strings.Builder
+	out.WriteString(fmt.Sprintf("%s: %s", e.ExceptionType, e.Message))
+	if e.StackTrace != nil {
+		out.WriteString("\n")
+		out.WriteString(e.StackTrace.Inspect())
+	}
+	if e.Cause != nil {
+		out.WriteString("\nCaused by: ")
+		out.WriteString(e.Cause.Inspect())
+	}
+	return out.String()
+}
+func (e *Exception) Free() {
+	if e.StackTrace != nil {
+		e.StackTrace.Free()
+	}
+	if e.Cause != nil {
+		e.Cause.Free()
+	}
+	e.ExceptionType = ""
+	e.Message = ""
+	e.StackTrace = nil
+	e.Cause = nil
+}
+
+// ExceptionSignal is used for exception control flow
+type ExceptionSignal struct {
+	Exception *Exception
+}
+
+func (es *ExceptionSignal) Type() ObjectType { return EXCEPTION_SIGNAL }
+func (es *ExceptionSignal) Inspect() string {
+	if es.Exception != nil {
+		return es.Exception.Inspect()
+	}
+	return "Unhandled exception"
+}
+func (es *ExceptionSignal) Free() {
+	if es.Exception != nil {
+		es.Exception.Free()
+	}
+	es.Exception = nil
+}
+
+// Utility functions for creating exceptions
+func NewException(exceptionType, message string) *Exception {
+	return &Exception{
+		ExceptionType: exceptionType,
+		Message:       message,
+	}
+}
+
+func NewExceptionWithCause(exceptionType, message string, cause *Exception) *Exception {
+	return &Exception{
+		ExceptionType: exceptionType,
+		Message:       message,
+		Cause:         cause,
+	}
+}
+
+func NewExceptionSignal(exception *Exception) *ExceptionSignal {
+	return &ExceptionSignal{Exception: exception}
+}
+
+// Built-in exception types
+const (
+	VALUE_ERROR     = "ValueError"
+	TYPE_ERROR      = "TypeError"
+	NAME_ERROR      = "NameError"
+	INDEX_ERROR     = "IndexError"
+	KEY_ERROR       = "KeyError"
+	ZERO_DIV_ERROR  = "ZeroDivisionError"
+	RUNTIME_ERROR   = "RuntimeError"
+	SYNTAX_ERROR    = "SyntaxError"
+	ATTRIBUTE_ERROR = "AttributeError"
+	ASSERTION_ERROR = "AssertionError"
+)

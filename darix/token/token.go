@@ -61,6 +61,12 @@ const (
 	BREAK    = "BREAK"
 	CONTINUE = "CONTINUE"
 	IMPORT   = "IMPORT"
+	// Exception handling keywords
+	TRY     = "TRY"
+	CATCH   = "CATCH"
+	FINALLY = "FINALLY"
+	THROW   = "THROW"
+	RAISE   = "RAISE"
 )
 
 var keywords = map[string]TokenType{
@@ -77,6 +83,12 @@ var keywords = map[string]TokenType{
 	"break":    BREAK,
 	"continue": CONTINUE,
 	"import":   IMPORT,
+	// Exception handling keywords
+	"try":     TRY,
+	"catch":   CATCH,
+	"finally": FINALLY,
+	"throw":   THROW,
+	"raise":   RAISE,
 }
 
 func LookupIdent(ident string) TokenType {

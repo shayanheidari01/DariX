@@ -148,6 +148,7 @@ type BlockStatement struct {
 }
 
 func (bs *BlockStatement) statementNode()       {}
+func (bs *BlockStatement) expressionNode()      {} // Add expression interface implementation
 func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 func (bs *BlockStatement) String() string {
 	var out strings.Builder
@@ -157,6 +158,21 @@ func (bs *BlockStatement) String() string {
 	}
 	out.WriteString("}")
 	return out.String()
+}
+
+// StandaloneBlockStatement represents standalone block statements that don't create new scope
+type StandaloneBlockStatement struct {
+	Token token.Token
+	Block *BlockStatement
+}
+
+func (sbs *StandaloneBlockStatement) statementNode()       {}
+func (sbs *StandaloneBlockStatement) TokenLiteral() string { return sbs.Token.Literal }
+func (sbs *StandaloneBlockStatement) String() string {
+	if sbs.Block != nil {
+		return sbs.Block.String()
+	}
+	return "{}"
 }
 
 // BreakStatement represents a 'break' statement
@@ -585,4 +601,111 @@ func (fe *ForExpression) String() string {
 		body = fe.Body.String()
 	}
 	return fmt.Sprintf("for(%s; %s; %s) %s", init, condition, post, body)
+}
+
+// ===== EXCEPTION HANDLING AST NODES =====
+
+// ThrowStatement represents a 'throw' or 'raise' statement
+type ThrowStatement struct {
+	Token     token.Token // the 'throw' or 'raise' token
+	Exception Expression  // the exception to throw
+}
+
+func (ts *ThrowStatement) statementNode()       {}
+func (ts *ThrowStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *ThrowStatement) String() string {
+	var out strings.Builder
+	out.WriteString(ts.TokenLiteral())
+	out.WriteString(" ")
+	if ts.Exception != nil {
+		out.WriteString(ts.Exception.String())
+	}
+	out.WriteString(";")
+	return out.String()
+}
+
+// TryStatement represents a try-catch-finally block
+type TryStatement struct {
+	Token        token.Token     // the 'try' token
+	TryBlock     *BlockStatement // the try block
+	CatchClauses []*CatchClause  // catch clauses
+	FinallyBlock *BlockStatement // the finally block (optional)
+}
+
+func (ts *TryStatement) statementNode()       {}
+func (ts *TryStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *TryStatement) String() string {
+	var out strings.Builder
+	out.WriteString("try ")
+	if ts.TryBlock != nil {
+		out.WriteString(ts.TryBlock.String())
+	}
+
+	for _, catchClause := range ts.CatchClauses {
+		out.WriteString(" ")
+		out.WriteString(catchClause.String())
+	}
+
+	if ts.FinallyBlock != nil {
+		out.WriteString(" finally ")
+		out.WriteString(ts.FinallyBlock.String())
+	}
+
+	return out.String()
+}
+
+// CatchClause represents a catch clause in a try-catch block
+type CatchClause struct {
+	Token         token.Token     // the 'catch' token
+	ExceptionType *Identifier     // exception type to catch (optional, catches all if nil)
+	Variable      *Identifier     // variable to bind the exception to (optional)
+	CatchBlock    *BlockStatement // the catch block
+}
+
+func (cc *CatchClause) String() string {
+	var out strings.Builder
+	out.WriteString("catch")
+
+	if cc.ExceptionType != nil {
+		out.WriteString(" (")
+		out.WriteString(cc.ExceptionType.String())
+		if cc.Variable != nil {
+			out.WriteString(" ")
+			out.WriteString(cc.Variable.String())
+		}
+		out.WriteString(")")
+	} else if cc.Variable != nil {
+		out.WriteString(" (")
+		out.WriteString(cc.Variable.String())
+		out.WriteString(")")
+	}
+
+	if cc.CatchBlock != nil {
+		out.WriteString(" ")
+		out.WriteString(cc.CatchBlock.String())
+	}
+
+	return out.String()
+}
+
+// ExceptionExpression represents an exception object creation
+type ExceptionExpression struct {
+	Token   token.Token // the first token
+	Type    *Identifier // exception type
+	Message Expression  // exception message
+}
+
+func (ee *ExceptionExpression) expressionNode()      {}
+func (ee *ExceptionExpression) TokenLiteral() string { return ee.Token.Literal }
+func (ee *ExceptionExpression) String() string {
+	var out strings.Builder
+	if ee.Type != nil {
+		out.WriteString(ee.Type.String())
+	}
+	out.WriteString("(")
+	if ee.Message != nil {
+		out.WriteString(ee.Message.String())
+	}
+	out.WriteString(")")
+	return out.String()
 }

@@ -21,11 +21,6 @@ var (
 	FALSE = &object.Boolean{Value: false}
 )
 
-const (
-	BREAK_SIGNAL    = "BREAK_SIGNAL"
-	CONTINUE_SIGNAL = "CONTINUE_SIGNAL"
-)
-
 type Interpreter struct {
 	env           *object.Environment
 	builtins      map[string]*object.Builtin
@@ -35,41 +30,40 @@ type Interpreter struct {
 func New() *Interpreter {
 	inter := &Interpreter{
 		env:           object.NewEnvironment(),
-		builtins:      make(map[string]*object.Builtin),
-		loadedModules: make(map[string]object.Object), // مقداردهی اولیه
+		builtins:      make(map[string]*object.Builtin, 32),
+		loadedModules: make(map[string]object.Object, 8),
 	}
 	inter.initBuiltins()
 	return inter
-}
-
-// optimPrint concatenates and writes directly
-func optimPrint(args ...object.Object) object.Object {
-	buf := &strings.Builder{}
-	for i, arg := range args {
-		if i > 0 {
-			buf.WriteRune(' ')
-		}
-		buf.WriteString(arg.Inspect())
-	}
-	buf.WriteRune('\n')
-	os.Stdout.Write([]byte(buf.String()))
-	return NULL
 }
 
 func (i *Interpreter) initBuiltins() {
 	i.builtins = map[string]*object.Builtin{
 		"print": {
 			Fn: func(args ...object.Object) object.Object {
-				// Concatenate all args into a single string
-				parts := make([]string, len(args))
-				for j, arg := range args {
-					parts[j] = arg.Inspect()
+				if len(args) == 0 {
+					fmt.Println()
+					return object.NewString("")
 				}
-				// Return a String object so REPL prints it
-				return object.NewString(strings.Join(parts, " "))
+				// Optimize for single argument case
+				if len(args) == 1 {
+					result := args[0].Inspect()
+					fmt.Println(result)
+					return object.NewString(result)
+				}
+				// Use strings.Builder for multiple arguments
+				var builder strings.Builder
+				for i, arg := range args {
+					if i > 0 {
+						builder.WriteByte(' ')
+					}
+					builder.WriteString(arg.Inspect())
+				}
+				result := builder.String()
+				fmt.Println(result)
+				return object.NewString(result)
 			},
 		},
-
 		"len": {
 			Fn: func(args ...object.Object) object.Object {
 				if len(args) != 1 {
@@ -81,6 +75,8 @@ func (i *Interpreter) initBuiltins() {
 				case *object.Array:
 					return object.NewInteger(int64(len(o.Elements)))
 				case *object.Map:
+					return object.NewInteger(int64(len(o.Pairs)))
+				case *object.Hash:
 					return object.NewInteger(int64(len(o.Pairs)))
 				default:
 					return object.NewError("len: unsupported type %s", o.Type())
@@ -96,9 +92,11 @@ func (i *Interpreter) initBuiltins() {
 				case *object.String:
 					return v
 				case *object.Integer:
-					return &object.String{Value: fmt.Sprintf("%d", v.Value)}
+					return object.NewString(strconv.FormatInt(v.Value, 10))
+				case *object.Float:
+					return object.NewString(strconv.FormatFloat(v.Value, 'g', -1, 64))
 				case *object.Boolean:
-					return &object.String{Value: fmt.Sprintf("%t", v.Value)}
+					return object.NewString(strconv.FormatBool(v.Value))
 				default:
 					return object.NewError("str: unsupported type %s", v.Type())
 				}
@@ -112,6 +110,8 @@ func (i *Interpreter) initBuiltins() {
 				switch v := args[0].(type) {
 				case *object.Integer:
 					return v
+				case *object.Float:
+					return object.NewInteger(int64(v.Value))
 				case *object.String:
 					val, err := strconv.ParseInt(v.Value, 10, 64)
 					if err != nil {
@@ -120,6 +120,27 @@ func (i *Interpreter) initBuiltins() {
 					return object.NewInteger(val)
 				default:
 					return object.NewError("int: unsupported type %s", v.Type())
+				}
+			},
+		},
+		"float": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("float: expected 1 argument, got %d", len(args))
+				}
+				switch v := args[0].(type) {
+				case *object.Float:
+					return v
+				case *object.Integer:
+					return object.NewFloat(float64(v.Value))
+				case *object.String:
+					val, err := strconv.ParseFloat(v.Value, 64)
+					if err != nil {
+						return object.NewError("float: cannot convert %s", v.Value)
+					}
+					return object.NewFloat(val)
+				default:
+					return object.NewError("float: unsupported type %s", v.Type())
 				}
 			},
 		},
@@ -136,7 +157,7 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) != 1 {
 					return object.NewError("type: expected 1 argument, got %d", len(args))
 				}
-				return &object.String{Value: string(args[0].Type())}
+				return object.NewString(string(args[0].Type()))
 			},
 		},
 		"input": {
@@ -149,35 +170,39 @@ func (i *Interpreter) initBuiltins() {
 				}
 				var s string
 				fmt.Scanln(&s)
-				return &object.String{Value: s}
+				return object.NewString(s)
 			},
 		},
 		"range": {
 			Fn: func(args ...object.Object) object.Object {
-				if len(args) == 0 || len(args) > 3 {
-					return object.NewError("range: expected 1-3 arguments, got %d", len(args))
+				argCount := len(args)
+				if argCount == 0 || argCount > 3 {
+					return object.NewError("range: expected 1-3 arguments, got %d", argCount)
 				}
 
 				var start, stop, step int64
-				switch len(args) {
+				switch argCount {
 				case 1:
-					start = 0
-					stop = asInt(args[0])
-					step = 1
+					start, stop, step = 0, asInt(args[0]), 1
 				case 2:
-					start = asInt(args[0])
-					stop = asInt(args[1])
-					step = 1
+					start, stop, step = asInt(args[0]), asInt(args[1]), 1
 				case 3:
-					start = asInt(args[0])
-					stop = asInt(args[1])
-					step = asInt(args[2])
+					start, stop, step = asInt(args[0]), asInt(args[1]), asInt(args[2])
 				}
 
-				var elems []object.Object
 				if step == 0 {
 					return object.NewError("range: step cannot be 0")
 				}
+
+				// Pre-calculate capacity
+				var capacity int64
+				if step > 0 && stop > start {
+					capacity = (stop - start + step - 1) / step
+				} else if step < 0 && start > stop {
+					capacity = (start - stop - step - 1) / (-step)
+				}
+
+				elems := make([]object.Object, 0, capacity)
 				if step > 0 {
 					for i := start; i < stop; i += step {
 						elems = append(elems, object.NewInteger(i))
@@ -187,7 +212,7 @@ func (i *Interpreter) initBuiltins() {
 						elems = append(elems, object.NewInteger(i))
 					}
 				}
-				return &object.Array{Elements: elems}
+				return object.NewArray(elems)
 			},
 		},
 		"abs": {
@@ -195,13 +220,20 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) != 1 {
 					return object.NewError("abs: expected 1 argument, got %d", len(args))
 				}
-				if i, ok := args[0].(*object.Integer); ok {
-					if i.Value < 0 {
-						return object.NewInteger(-i.Value)
+				switch v := args[0].(type) {
+				case *object.Integer:
+					if v.Value < 0 {
+						return object.NewInteger(-v.Value)
 					}
-					return i
+					return v
+				case *object.Float:
+					if v.Value < 0 {
+						return object.NewFloat(-v.Value)
+					}
+					return v
+				default:
+					return object.NewError("abs: unsupported type %s", v.Type())
 				}
-				return object.NewError("abs: unsupported type %s", args[0].Type())
 			},
 		},
 		"max": {
@@ -210,15 +242,9 @@ func (i *Interpreter) initBuiltins() {
 					return object.NewError("max: expected at least 1 argument")
 				}
 				max := args[0]
-				for _, a := range args[1:] {
-					if left, ok := max.(*object.Integer); ok {
-						if right, ok := a.(*object.Integer); ok {
-							if right.Value > left.Value {
-								max = right
-							}
-						} else {
-							return object.NewError("max: all arguments must be integers")
-						}
+				for _, arg := range args[1:] {
+					if compareObjects(arg, max) > 0 {
+						max = arg
 					}
 				}
 				return max
@@ -230,15 +256,9 @@ func (i *Interpreter) initBuiltins() {
 					return object.NewError("min: expected at least 1 argument")
 				}
 				min := args[0]
-				for _, a := range args[1:] {
-					if left, ok := min.(*object.Integer); ok {
-						if right, ok := a.(*object.Integer); ok {
-							if right.Value < left.Value {
-								min = right
-							}
-						} else {
-							return object.NewError("min: all arguments must be integers")
-						}
+				for _, arg := range args[1:] {
+					if compareObjects(arg, min) < 0 {
+						min = arg
 					}
 				}
 				return min
@@ -253,22 +273,41 @@ func (i *Interpreter) initBuiltins() {
 				if !ok {
 					return object.NewError("sum: argument must be an array")
 				}
-				var total int64
+
+				var intSum int64
+				var floatSum float64
+				var hasFloat bool
+
 				for _, elem := range arr.Elements {
-					if i, ok := elem.(*object.Integer); ok {
-						total += i.Value
-					} else {
-						return object.NewError("sum: all elements must be integers")
+					switch v := elem.(type) {
+					case *object.Integer:
+						if hasFloat {
+							floatSum += float64(v.Value)
+						} else {
+							intSum += v.Value
+						}
+					case *object.Float:
+						if !hasFloat {
+							floatSum = float64(intSum) + v.Value
+							hasFloat = true
+						} else {
+							floatSum += v.Value
+						}
+					default:
+						return object.NewError("sum: all elements must be numbers")
 					}
 				}
-				return object.NewInteger(total)
+
+				if hasFloat {
+					return object.NewFloat(floatSum)
+				}
+				return object.NewInteger(intSum)
 			},
 		},
-
 		"reverse": {
 			Fn: func(args ...object.Object) object.Object {
 				if len(args) != 1 {
-					return object.NewError("reverse: expected 1 argument (string or array)")
+					return object.NewError("reverse: expected 1 argument")
 				}
 				switch val := args[0].(type) {
 				case *object.String:
@@ -276,19 +315,18 @@ func (i *Interpreter) initBuiltins() {
 					for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 						runes[i], runes[j] = runes[j], runes[i]
 					}
-					return &object.String{Value: string(runes)}
+					return object.NewString(string(runes))
 				case *object.Array:
 					reversed := make([]object.Object, len(val.Elements))
-					for i, j := 0, len(val.Elements)-1; i <= j; i, j = i+1, j-1 {
-						reversed[i], reversed[j] = val.Elements[j], val.Elements[i]
+					for i, elem := range val.Elements {
+						reversed[len(val.Elements)-1-i] = elem
 					}
-					return &object.Array{Elements: reversed}
+					return object.NewArray(reversed)
 				default:
 					return object.NewError("reverse: unsupported type %s", val.Type())
 				}
 			},
 		},
-
 		"sorted": {
 			Fn: func(args ...object.Object) object.Object {
 				if len(args) != 1 {
@@ -298,14 +336,15 @@ func (i *Interpreter) initBuiltins() {
 				if !ok {
 					return object.NewError("sorted: argument must be an array")
 				}
+
 				elements := make([]object.Object, len(arr.Elements))
 				copy(elements, arr.Elements)
+
 				sort.Slice(elements, func(i, j int) bool {
-					li, lok := elements[i].(*object.Integer)
-					ri, rok := elements[j].(*object.Integer)
-					return lok && rok && li.Value < ri.Value
+					return compareObjects(elements[i], elements[j]) < 0
 				})
-				return &object.Array{Elements: elements}
+
+				return object.NewArray(elements)
 			},
 		},
 		"upper": {
@@ -313,15 +352,11 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) != 1 {
 					return object.NewError("upper: expected 1 argument, got %d", len(args))
 				}
-
 				s, ok := args[0].(*object.String)
 				if !ok {
 					return object.NewError("upper: argument must be a string, got %s", args[0].Type())
 				}
-
-				// استفاده از پول برای ایجاد شیء جدید
-				result := object.NewString(strings.ToUpper(s.Value))
-				return result
+				return object.NewString(strings.ToUpper(s.Value))
 			},
 		},
 		"lower": {
@@ -329,15 +364,11 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) != 1 {
 					return object.NewError("lower: expected 1 argument, got %d", len(args))
 				}
-
 				s, ok := args[0].(*object.String)
 				if !ok {
 					return object.NewError("lower: argument must be a string, got %s", args[0].Type())
 				}
-
-				// استفاده از پول برای ایجاد شیء جدید
-				result := object.NewString(strings.ToLower(s.Value))
-				return result
+				return object.NewString(strings.ToLower(s.Value))
 			},
 		},
 		"trim": {
@@ -345,15 +376,11 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) != 1 {
 					return object.NewError("trim: expected 1 argument, got %d", len(args))
 				}
-
 				s, ok := args[0].(*object.String)
 				if !ok {
 					return object.NewError("trim: argument must be a string, got %s", args[0].Type())
 				}
-
-				// استفاده از پول برای ایجاد شیء جدید
-				result := object.NewString(strings.TrimSpace(s.Value))
-				return result
+				return object.NewString(strings.TrimSpace(s.Value))
 			},
 		},
 		"append": {
@@ -361,28 +388,18 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) < 2 {
 					return object.NewError("append: expected array and at least one value")
 				}
-
 				arr, ok := args[0].(*object.Array)
 				if !ok {
 					return object.NewError("append: first argument must be an array")
 				}
 
-				// ایجاد آرایه جدید با ظرفیت کافی
-				newLength := len(arr.Elements) + len(args) - 1
-				newElements := make([]object.Object, newLength)
-
-				// کپی عناصر موجود
+				newElements := make([]object.Object, len(arr.Elements)+len(args)-1)
 				copy(newElements, arr.Elements)
-
-				// اضافه کردن عناصر جدید
-				for i, arg := range args[1:] {
-					newElements[len(arr.Elements)+i] = arg
-				}
+				copy(newElements[len(arr.Elements):], args[1:])
 
 				return object.NewArray(newElements)
 			},
 		},
-
 		"contains": {
 			Fn: func(args ...object.Object) object.Object {
 				if len(args) != 2 {
@@ -405,27 +422,39 @@ func (i *Interpreter) initBuiltins() {
 				if len(args) != 2 {
 					return object.NewError("pow: expected 2 arguments")
 				}
-				base, ok1 := args[0].(*object.Integer)
-				exp, ok2 := args[1].(*object.Integer)
-				if !ok1 || !ok2 {
-					return object.NewError("pow: both arguments must be integers")
+
+				base, exp := asNumber(args[0]), asNumber(args[1])
+				if base == nil || exp == nil {
+					return object.NewError("pow: both arguments must be numbers")
 				}
-				result := int64(1)
-				for i := int64(0); i < exp.Value; i++ {
-					result *= base.Value
+
+				// Handle integer exponentiation for better precision
+				if expInt, ok := exp.(*object.Integer); ok && expInt.Value >= 0 {
+					if baseInt, ok := base.(*object.Integer); ok {
+						result := int64(1)
+						for i := int64(0); i < expInt.Value; i++ {
+							result *= baseInt.Value
+						}
+						return object.NewInteger(result)
+					}
 				}
-				return object.NewInteger(result)
+
+				// Fallback to float
+				baseFloat := toFloat(base)
+				expFloat := toFloat(exp)
+				result := 1.0
+				for i := 0.0; i < expFloat; i++ {
+					result *= baseFloat
+				}
+				return object.NewFloat(result)
 			},
 		},
-
 		"clamp": {
 			Fn: func(args ...object.Object) object.Object {
 				if len(args) != 3 {
 					return object.NewError("clamp: expected 3 arguments (val, min, max)")
 				}
-				val := asInt(args[0])
-				min := asInt(args[1])
-				max := asInt(args[2])
+				val, min, max := asInt(args[0]), asInt(args[1]), asInt(args[2])
 				if val < min {
 					return object.NewInteger(min)
 				}
@@ -437,10 +466,9 @@ func (i *Interpreter) initBuiltins() {
 		},
 		"now": {
 			Fn: func(args ...object.Object) object.Object {
-				return &object.String{Value: time.Now().Format(time.RFC3339)}
+				return object.NewString(time.Now().Format(time.RFC3339))
 			},
 		},
-
 		"timestamp": {
 			Fn: func(args ...object.Object) object.Object {
 				return object.NewInteger(time.Now().Unix())
@@ -448,234 +476,356 @@ func (i *Interpreter) initBuiltins() {
 		},
 		"exit": {
 			Fn: func(args ...object.Object) object.Object {
-				code := int64(0)
+				code := 0
 				if len(args) == 1 {
 					if i, ok := args[0].(*object.Integer); ok {
-						code = i.Value
+						code = int(i.Value)
 					}
 				}
-				os.Exit(int(code))
+				os.Exit(code)
 				return NULL
+			},
+		},
+		// Exception creation functions
+		"Exception": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) < 1 || len(args) > 2 {
+					return object.NewError("Exception: expected 1-2 arguments (type, message), got %d", len(args))
+				}
+
+				exceptionType := "Exception"
+				message := ""
+
+				if len(args) >= 1 {
+					if str, ok := args[0].(*object.String); ok {
+						message = str.Value
+					} else {
+						message = args[0].Inspect()
+					}
+				}
+
+				if len(args) == 2 {
+					// First argument is type, second is message
+					if str, ok := args[0].(*object.String); ok {
+						exceptionType = str.Value
+					}
+					if str, ok := args[1].(*object.String); ok {
+						message = str.Value
+					} else {
+						message = args[1].Inspect()
+					}
+				}
+
+				return object.NewException(exceptionType, message)
+			},
+		},
+		"ValueError": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("ValueError: expected 1 argument (message), got %d", len(args))
+				}
+
+				message := ""
+				if str, ok := args[0].(*object.String); ok {
+					message = str.Value
+				} else {
+					message = args[0].Inspect()
+				}
+
+				return object.NewException(object.VALUE_ERROR, message)
+			},
+		},
+		"TypeError": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("TypeError: expected 1 argument (message), got %d", len(args))
+				}
+
+				message := ""
+				if str, ok := args[0].(*object.String); ok {
+					message = str.Value
+				} else {
+					message = args[0].Inspect()
+				}
+
+				return object.NewException(object.TYPE_ERROR, message)
+			},
+		},
+		"RuntimeError": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("RuntimeError: expected 1 argument (message), got %d", len(args))
+				}
+
+				message := ""
+				if str, ok := args[0].(*object.String); ok {
+					message = str.Value
+				} else {
+					message = args[0].Inspect()
+				}
+
+				return object.NewException(object.RUNTIME_ERROR, message)
+			},
+		},
+		"IndexError": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("IndexError: expected 1 argument (message), got %d", len(args))
+				}
+
+				message := ""
+				if str, ok := args[0].(*object.String); ok {
+					message = str.Value
+				} else {
+					message = args[0].Inspect()
+				}
+
+				return object.NewException(object.INDEX_ERROR, message)
+			},
+		},
+		"KeyError": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("KeyError: expected 1 argument (message), got %d", len(args))
+				}
+
+				message := ""
+				if str, ok := args[0].(*object.String); ok {
+					message = str.Value
+				} else {
+					message = args[0].Inspect()
+				}
+
+				return object.NewException(object.KEY_ERROR, message)
+			},
+		},
+		"ZeroDivisionError": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("ZeroDivisionError: expected 1 argument (message), got %d", len(args))
+				}
+
+				message := ""
+				if str, ok := args[0].(*object.String); ok {
+					message = str.Value
+				} else {
+					message = args[0].Inspect()
+				}
+
+				return object.NewException(object.ZERO_DIV_ERROR, message)
 			},
 		},
 	}
 }
 
+// Helper functions for type conversion and comparison
 func asInt(obj object.Object) int64 {
 	switch o := obj.(type) {
 	case *object.Integer:
 		return o.Value
+	case *object.Float:
+		return int64(o.Value)
 	case *object.String:
-		i, _ := strconv.ParseInt(o.Value, 10, 64)
-		return i
+		if i, err := strconv.ParseInt(o.Value, 10, 64); err == nil {
+			return i
+		}
+	}
+	return 0
+}
+
+func asNumber(obj object.Object) object.Object {
+	switch obj.(type) {
+	case *object.Integer, *object.Float:
+		return obj
 	default:
-		return 0
+		return nil
 	}
 }
 
-// Interpret runs the interpreter on the AST program.
-// It evaluates statements and returns the last evaluated object.
-// It also handles freeing the final result object.
+func toFloat(obj object.Object) float64 {
+	switch o := obj.(type) {
+	case *object.Integer:
+		return float64(o.Value)
+	case *object.Float:
+		return o.Value
+	default:
+		return 0.0
+	}
+}
+
+func compareObjects(a, b object.Object) int {
+	switch av := a.(type) {
+	case *object.Integer:
+		if bv, ok := b.(*object.Integer); ok {
+			if av.Value < bv.Value {
+				return -1
+			} else if av.Value > bv.Value {
+				return 1
+			}
+			return 0
+		}
+	case *object.Float:
+		if bv, ok := b.(*object.Float); ok {
+			if av.Value < bv.Value {
+				return -1
+			} else if av.Value > bv.Value {
+				return 1
+			}
+			return 0
+		}
+	case *object.String:
+		if bv, ok := b.(*object.String); ok {
+			return strings.Compare(av.Value, bv.Value)
+		}
+	}
+	return 0
+}
+
 func (i *Interpreter) Interpret(program *ast.Program) object.Object {
-	var result object.Object
+	var result object.Object = NULL
+
 	for _, statement := range program.Statements {
 		result = i.eval(statement, i.env)
-		// Free previous result if it's not the final one and not special (like RETURN_VALUE or ERROR)
-		// This is a very basic form of auto-release.
-		// A more robust system would track object lifetimes.
-		// For now, we assume the final result is managed by the caller (e.g., REPL).
-		// if prevResult != nil && prevResult != result && prevResult.Type() != object.RETURN_VALUE_OBJ && prevResult.Type() != object.ERROR_OBJ {
-		//     prevResult.Free()
-		// }
-		// prevResult = result
 
 		switch result := result.(type) {
 		case *object.ReturnValue:
-			// Unwrap the return value. The ReturnValue object itself should be freed.
-			// The value inside might need to be returned.
-			val := result.Value
-			// result.Free() // Free the wrapper
-			return val // Return the inner value
+			return result.Value
 		case *object.Error:
-			// Return the error. The Error object itself is returned.
-			// result.Free() // Usually not freed if returned, caller handles it.
 			return result
-
 		}
 	}
-	// Caller (e.g., REPL) is responsible for freeing the final 'result'
-	// unless it's NULL, TRUE, FALSE which are global constants.
+
 	return result
 }
 
-// eval is the main recursive evaluation function.
-// eval is the main recursive evaluation function.
 func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object {
 	switch node := node.(type) {
-	// Statements
 	case *ast.Program:
 		return i.evalProgram(node, env)
+
 	case *ast.ExpressionStatement:
-		fmt.Fprintln(os.Stderr, "[DEBUG] eval: Found ExpressionStatement")
 		result := i.eval(node.Expression, env)
-		if result != nil {
-			fmt.Fprintln(os.Stderr, "[DEBUG] eval: ExpressionStatement result type:", result.Type())
-			if result.Type() == object.NULL_OBJ {
-				fmt.Fprintln(os.Stderr, "[DEBUG] eval: Result is NULL_OBJ, not returning")
-				return NULL
-			}
+		// Check if the expression resulted in an exception signal
+		if exceptionSignal, isException := result.(*object.ExceptionSignal); isException {
+			return exceptionSignal
 		}
 		return result
+
 	case *ast.BreakStatement:
 		return &object.BreakSignal{}
+
 	case *ast.ContinueStatement:
 		return &object.ContinueSignal{}
+
 	case *ast.WhileStatement:
 		return i.evalWhile(node, env)
+
 	case *ast.ForStatement:
 		return i.evalFor(node, env)
+
 	case *ast.LetStatement:
-		// ابتدا یک placeholder تنظیم کنید برای پشتیبانی از بازگشتی
-		// Note: Setting NULL directly in env might cause issues if NULL is a global.
-		// It's better to create a new null object or handle it specially in env.Set.
-		// For simplicity, we'll proceed but note the potential issue.
-		// A better approach might be to not set it initially or use a special marker.
-		env.Set(node.Name.Value, NULL)
 		val := i.eval(node.Value, env)
 		if isError(val) {
 			return val
+		}
+		// Check if the expression resulted in an exception signal
+		if exceptionSignal, isException := val.(*object.ExceptionSignal); isException {
+			return exceptionSignal
 		}
 		env.Set(node.Name.Value, val)
-		// LetStatement itself returns NULL
 		return NULL
+
 	case *ast.AssignStatement:
-		val := i.eval(node.Value, env)
-		if isError(val) {
-			return val
-		}
-		// بررسی نوع Target
-		switch target := node.Target.(type) {
-		case *ast.Identifier:
-			// تخصیص به یک شناسه ساده
-			env.Set(target.Value, val)
-		case *ast.IndexExpression:
-			// تخصیص به یک عبارت شاخص‌گذاری (مانند map[key])
-			left := i.eval(target.Left, env)
-			if isError(left) {
-				return left
-			}
-			index := i.eval(target.Index, env)
-			if isError(index) {
-				return index
-			}
+		return i.evalAssignStatement(node, env)
 
-			// مدیریت آرایه‌ها
-			if array, ok := left.(*object.Array); ok {
-				if idx, ok := index.(*object.Integer); ok {
-					if idx.Value < 0 || int(idx.Value) >= len(array.Elements) {
-						return newError("index out of range: %d", idx.Value)
-					}
-					// آزاد کردن مقدار قبلی
-					if array.Elements[idx.Value] != nil {
-						array.Elements[idx.Value].Free()
-					}
-					array.Elements[idx.Value] = val
-					return NULL
-				}
-			}
-
-			// مدیریت مپ‌ها
-			if hash, ok := left.(*object.Hash); ok {
-				hashKey, ok := index.(object.Hashable)
-				if !ok {
-					return newError("unusable as hash key: %s", index.Type())
-				}
-
-				// آزاد کردن مقدار قبلی اگر وجود داشت
-				if pair, exists := hash.Pairs[hashKey.HashKey()]; exists {
-					pair.Value.Free()
-				}
-
-				hash.Pairs[hashKey.HashKey()] = object.HashPair{Key: index, Value: val}
-				return NULL
-			}
-
-			return newError("invalid assignment target: expected array or hash, got %s", left.Type())
-		default:
-			return newError("invalid assignment target: expected identifier or index expression, got %T", target)
-		}
-		return NULL
 	case *ast.ReturnStatement:
 		val := i.eval(node.ReturnValue, env)
 		if isError(val) {
 			return val
 		}
-		// Wrap the value in a ReturnValue object.
-		// The ReturnValue object itself needs to be managed.
-		// When unwrapped, the value inside is returned, and the wrapper is freed.
-		rv := &object.ReturnValue{Value: val}
-		// Note: Who frees 'rv'? It should be freed when it's unwrapped in evalProgram/evalBlockStatement.
-		return rv
+		// Check if the expression resulted in an exception signal
+		if exceptionSignal, isException := val.(*object.ExceptionSignal); isException {
+			return exceptionSignal
+		}
+		return &object.ReturnValue{Value: val}
+
 	case *ast.BlockStatement:
 		return i.evalBlockStatement(node, env)
+
+	case *ast.StandaloneBlockStatement:
+		// Standalone blocks don't create new scope - just execute statements in current environment
+		return i.evalBlockStatementWithScoping(node.Block, env, false)
+
 	case *ast.Null:
 		return NULL
-	// Expressions
+
 	case *ast.IntegerLiteral:
-		// Use the new pooled object
 		return object.NewInteger(node.Value)
+
 	case *ast.FloatLiteral:
 		return object.NewFloat(node.Value)
+
 	case *ast.Boolean:
-		// Use the helper function which returns global constants
 		return nativeBoolToBooleanObject(node.Value)
+
 	case *ast.StringLiteral:
-		// Use the new pooled object
 		return object.NewString(node.Value)
+
 	case *ast.PrefixExpression:
 		right := i.eval(node.Right, env)
 		if isError(right) {
-			// Free the error if it's not going to be returned directly
-			// In this case, it is returned, so we don't free it here.
 			return right
 		}
-		res := i.evalPrefixExpression(node.Operator, right)
-		// Free the operand as it's no longer needed (unless res is the same object, which is unlikely here)
-		// For safety, we can check if res != right before freeing right.
-		// However, evalPrefixExpression typically creates a new object.
-		if res != right { // Safety check
-			right.Free()
-		}
-		return res
+		return i.evalPrefixExpression(node.Operator, right)
+
 	case *ast.InfixExpression:
-		left := i.eval(node.Left, env)
-		if isError(left) {
-			return left
+		// Handle logical operators with short-circuit evaluation
+		if node.Operator == "&&" {
+			left := i.eval(node.Left, env)
+			if isError(left) {
+				return left
+			}
+			if !isTruthy(left) {
+				return FALSE
+			}
+			right := i.eval(node.Right, env)
+			if isError(right) {
+				return right
+			}
+			return nativeBoolToBooleanObject(isTruthy(right))
+		} else if node.Operator == "||" {
+			left := i.eval(node.Left, env)
+			if isError(left) {
+				return left
+			}
+			if isTruthy(left) {
+				return TRUE
+			}
+			right := i.eval(node.Right, env)
+			if isError(right) {
+				return right
+			}
+			return nativeBoolToBooleanObject(isTruthy(right))
+		} else {
+			// Regular infix operators
+			left := i.eval(node.Left, env)
+			if isError(left) {
+				return left
+			}
+			right := i.eval(node.Right, env)
+			if isError(right) {
+				return right
+			}
+			return i.evalInfixExpression(node.Operator, left, right)
 		}
-		right := i.eval(node.Right, env)
-		if isError(right) {
-			// Free left if right is an error and we are returning right
-			left.Free()
-			return right
-		}
-		res := i.evalInfixExpression(node.Operator, left, right)
-		// Free operands
-		// Add safety checks if res could be the same as left or right (e.g., for identity operations)
-		if res != left { // Safety check
-			left.Free()
-		}
-		if res != right { // Safety check
-			right.Free()
-		}
-		return res
+
 	case *ast.IfExpression:
-		// The result of evalIfExpression should be freed by the caller if not kept.
 		return i.evalIfExpression(node, env)
+
 	case *ast.Identifier:
-		// The object returned by env.Get should not be freed here, as it's still in use.
 		return i.evalIdentifier(node, env)
+
 	case *ast.FunctionDeclaration:
-		// ایجاد تابع و ثبت در محیط جاری
 		fn := &object.Function{
 			Parameters: node.Parameters,
 			Env:        env,
@@ -683,123 +833,246 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 		}
 		env.Set(node.Name.Value, fn)
 		return NULL
+
 	case *ast.FunctionLiteral:
-		// Function object doesn't use pools in this simple example, but could.
-		// It captures the current environment.
-		return &object.Function{Parameters: node.Parameters, Env: env, Body: node.Body}
+		return &object.Function{
+			Parameters: node.Parameters,
+			Env:        env,
+			Body:       node.Body,
+		}
+
 	case *ast.CallExpression:
-		fmt.Fprintln(os.Stderr, "[DEBUG] eval: Found CallExpression")
 		function := i.eval(node.Function, env)
 		if isError(function) {
-			fmt.Fprintln(os.Stderr, "[DEBUG] eval: Error evaluating function:", function.Inspect())
 			return function
 		}
-
 		args := i.evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
-			fmt.Fprintln(os.Stderr, "[DEBUG] eval: Error evaluating arguments:", args[0].Inspect())
 			return args[0]
 		}
+		return i.applyFunction(function, args)
 
-		result := i.applyFunction(function, args)
-		fmt.Fprintln(os.Stderr, "[DEBUG] eval: CallExpression evaluation completed")
-		return result
 	case *ast.ArrayLiteral:
 		elems := i.evalExpressions(node.Elements, env)
-		return object.NewArray(elems)
-	case *ast.MapLiteral:
-		pairs := make(map[object.Object]object.Object)
-		for keyNode, valNode := range node.Pairs {
-			key := i.eval(keyNode, env)
-			val := i.eval(valNode, env)
-			pairs[key] = val
+		if len(elems) == 1 && isError(elems[0]) {
+			return elems[0]
 		}
-		return object.NewMap(pairs)
+		return object.NewArray(elems)
+
+	case *ast.MapLiteral:
+		return i.evalMapLiteral(node, env)
+
 	case *ast.IndexExpression:
 		left := i.eval(node.Left, env)
 		if isError(left) {
 			return left
 		}
-
 		index := i.eval(node.Index, env)
 		if isError(index) {
 			return index
 		}
-
 		return i.evalIndexExpression(left, index)
+
 	case *ast.ImportStatement:
-		path := node.Path.Value
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return &object.Error{Message: fmt.Sprintf("import: cannot read module %q: %s", path, err)}
-		}
-		// پارس ماژول
-		l2 := lexer.New(string(content))
-		p2 := parser.New(l2)
-		program := p2.ParseProgram()
-		if len(p2.Errors()) != 0 {
-			errorMsg := "import: parse errors in module " + path + ": " + strings.Join(p2.Errors(), ", ")
-			return &object.Error{Message: errorMsg}
-		}
-		// تفسیر ماژول در محیط جدید
-		moduleEnv := object.NewEnclosedEnvironment(env)
-		modInter := New()
-		modInter.env = moduleEnv
-		res := modInter.Interpret(program)
-		if errObj, ok := res.(*object.Error); ok {
-			return &object.Error{Message: fmt.Sprintf("import: runtime error in %q: %s", path, errObj.Message)}
-		}
-		// برگرداندن محیط ماژول به عنوان شیء مخصوص
-		return &object.Module{Env: moduleEnv, Path: path}
+		return i.evalImportStatement(node, env)
+
+	case *ast.AssignExpression:
+		return i.evalAssignExpression(node, env)
+
+	case *ast.TryStatement:
+		return i.evalTryStatement(node, env)
+
+	case *ast.ThrowStatement:
+		return i.evalThrowStatement(node, env)
+
+	default:
+		return newError("unknown node type: %T", node)
 	}
-	// Default case, return NULL
-	return NULL
 }
 
-// evalProgram evaluates a program node.
 func (i *Interpreter) evalProgram(program *ast.Program, env *object.Environment) object.Object {
-	var result object.Object
+	var result object.Object = NULL
+
 	for _, statement := range program.Statements {
 		result = i.eval(statement, env)
 
 		switch result := result.(type) {
 		case *object.ReturnValue:
-			// Unwrap the return value and free the wrapper
-			val := result.Value
-			// result.Free() // Free the wrapper
-			return val
+			return result.Value
 		case *object.Error:
-			// Return the error
-			// result.Free() // Usually not freed if returned
+			return result
+		case *object.ExceptionSignal:
+			// Unhandled exception at program level
 			return result
 		}
-		// Free intermediate results? This is tricky without RC.
-		// For now, we rely on the caller (Interpret) or the final consumer (REPL) to manage the final result.
 	}
+
 	return result
 }
 
 func (i *Interpreter) evalBlockStatement(block *ast.BlockStatement, env *object.Environment) object.Object {
-	var result object.Object = NULL
-	for _, stmt := range block.Statements {
-		res := i.eval(stmt, env)
-		if res != nil {
-			// برای دستوراتی که چیزی بر نمی‌گردانند (مثل print)
-			if res.Type() == object.NULL_OBJ {
-				continue
-			}
+	return i.evalBlockStatementWithScoping(block, env, true)
+}
 
-			switch res.(type) {
-			case *object.ReturnValue, *object.Error, *object.BreakSignal, *object.ContinueSignal:
-				return res
-			}
-			result = res
+// Helper function to control whether to create new scope
+func (i *Interpreter) evalBlockStatementWithScoping(block *ast.BlockStatement, env *object.Environment, createNewScope bool) object.Object {
+	var result object.Object = NULL
+	var blockEnv *object.Environment
+
+	if createNewScope {
+		// Create new enclosed environment for block scope
+		blockEnv = object.NewEnclosedEnvironment(env)
+	} else {
+		// Use the same environment (for loop bodies)
+		blockEnv = env
+	}
+
+	for _, stmt := range block.Statements {
+		result = i.eval(stmt, blockEnv)
+
+		switch result.(type) {
+		case *object.ReturnValue, *object.Error, *object.BreakSignal, *object.ContinueSignal, *object.ExceptionSignal:
+			return result
 		}
 	}
+
 	return result
 }
 
-// Helper function to convert Go bool to Object bool
+func (i *Interpreter) evalAssignStatement(node *ast.AssignStatement, env *object.Environment) object.Object {
+	val := i.eval(node.Value, env)
+	if isError(val) {
+		return val
+	}
+
+	switch target := node.Target.(type) {
+	case *ast.Identifier:
+		// Try to update existing variable first, if not found then create new one
+		if !env.Update(target.Value, val) {
+			env.Set(target.Value, val)
+		}
+	case *ast.IndexExpression:
+		return i.evalIndexAssignment(target, val, env)
+	default:
+		return newError("invalid assignment target: expected identifier or index expression, got %T", target)
+	}
+
+	return val
+}
+
+func (i *Interpreter) evalIndexAssignment(indexExpr *ast.IndexExpression, val object.Object, env *object.Environment) object.Object {
+	left := i.eval(indexExpr.Left, env)
+	if isError(left) {
+		return left
+	}
+
+	index := i.eval(indexExpr.Index, env)
+	if isError(index) {
+		return index
+	}
+
+	switch container := left.(type) {
+	case *object.Array:
+		idx, ok := index.(*object.Integer)
+		if !ok {
+			exception := object.NewException(object.TYPE_ERROR, fmt.Sprintf("array index must be integer, got %s", index.Type()))
+			return object.NewExceptionSignal(exception)
+		}
+		if idx.Value < 0 || int(idx.Value) >= len(container.Elements) {
+			exception := object.NewException(object.INDEX_ERROR, fmt.Sprintf("array index out of range: %d", idx.Value))
+			return object.NewExceptionSignal(exception)
+		}
+		container.Elements[idx.Value] = val
+		return NULL
+
+	case *object.Hash:
+		hashKey, ok := index.(object.Hashable)
+		if !ok {
+			return newError("unusable as hash key: %s", index.Type())
+		}
+		container.Pairs[hashKey.HashKey()] = object.HashPair{Key: index, Value: val}
+		return NULL
+
+	case *object.Map:
+		// Find existing key using value comparison
+		found := false
+		for k := range container.Pairs {
+			if object.Equals(k, index) {
+				// Update existing key
+				delete(container.Pairs, k)
+				container.Pairs[index] = val
+				found = true
+				break
+			}
+		}
+		if !found {
+			// Add new key
+			container.Pairs[index] = val
+		}
+		return NULL
+
+	default:
+		return newError("index assignment not supported on %s", left.Type())
+	}
+}
+
+func (i *Interpreter) evalMapLiteral(node *ast.MapLiteral, env *object.Environment) object.Object {
+	// Pre-allocate with expected capacity for better performance
+	pairs := make(map[object.Object]object.Object, len(node.Pairs))
+
+	for keyNode, valNode := range node.Pairs {
+		key := i.eval(keyNode, env)
+		if isError(key) {
+			return key
+		}
+
+		val := i.eval(valNode, env)
+		if isError(val) {
+			return val
+		}
+
+		pairs[key] = val
+	}
+
+	return object.NewMap(pairs)
+}
+
+func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object.Environment) object.Object {
+	path := node.Path.Value
+
+	// Check if module already loaded
+	if cached, exists := i.loadedModules[path]; exists {
+		return cached
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return newError("import: cannot read module %q: %s", path, err)
+	}
+
+	l := lexer.New(string(content))
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if errors := p.Errors(); len(errors) > 0 {
+		return newError("import: parse errors in module %s: %s", path, strings.Join(errors, ", "))
+	}
+
+	moduleEnv := object.NewEnclosedEnvironment(env)
+	modInter := New()
+	modInter.env = moduleEnv
+	modInter.loadedModules = i.loadedModules // Share loaded modules
+
+	result := modInter.Interpret(program)
+	if isError(result) {
+		return newError("import: runtime error in %q: %s", path, result.(*object.Error).Message)
+	}
+
+	module := &object.Module{Env: moduleEnv, Path: path}
+	i.loadedModules[path] = module
+	return module
+}
+
 func nativeBoolToBooleanObject(input bool) *object.Boolean {
 	if input {
 		return TRUE
@@ -807,248 +1080,77 @@ func nativeBoolToBooleanObject(input bool) *object.Boolean {
 	return FALSE
 }
 
-// evalPrefixExpression evaluates prefix expressions.
 func (i *Interpreter) evalPrefixExpression(operator string, right object.Object) object.Object {
 	switch operator {
 	case "!":
-		return i.evalBangOperatorExpression(right)
+		return i.evalBangOperator(right)
 	case "-":
-		return i.evalMinusPrefixOperatorExpression(right)
+		return i.evalMinusPrefix(right)
 	default:
-		// Error object doesn't need Free here as it's returned
 		return newError("unknown operator: %s%s", operator, right.Type())
 	}
 }
 
-// evalBangOperatorExpression evaluates the '!' operator.
-func (i *Interpreter) evalBangOperatorExpression(right object.Object) object.Object {
-	switch right {
-	case TRUE:
-		// TRUE.Free() // Global constant
-		return FALSE
-	case FALSE:
-		// FALSE.Free() // Global constant
-		return TRUE
-	case NULL:
-		// NULL.Free() // Global constant
-		return TRUE
-	default:
-		// right.Free() // Free the operand
+func (i *Interpreter) evalBangOperator(right object.Object) object.Object {
+	if isTruthy(right) {
 		return FALSE
 	}
+	return TRUE
 }
 
-// evalMinusPrefixOperatorExpression evaluates the unary '-' operator.
-func (i *Interpreter) evalMinusPrefixOperatorExpression(right object.Object) object.Object {
-	if right.Type() != object.INTEGER_OBJ {
-		// right.Free() // Free the operand
-		// Error object doesn't need Free here as it's returned
+func (i *Interpreter) evalMinusPrefix(right object.Object) object.Object {
+	switch obj := right.(type) {
+	case *object.Integer:
+		return object.NewInteger(-obj.Value)
+	case *object.Float:
+		return object.NewFloat(-obj.Value)
+	default:
 		return newError("unknown operator: -%s", right.Type())
 	}
-	// Get the value and create a new integer
-	value := right.(*object.Integer).Value
-	// right.Free() // Free the operand
-	// Return a new pooled integer
-	return object.NewInteger(-value)
 }
 
-// evalInfixExpression evaluates infix expressions.
 func (i *Interpreter) evalInfixExpression(op string, left, right object.Object) object.Object {
-	return i.evalBasicInfix(op, left, right)
-}
-
-// evalIfExpression evaluates an if expression.
-func (i *Interpreter) evalIfExpression(ie *ast.IfExpression, env *object.Environment) object.Object {
-	condition := i.eval(ie.Condition, env)
-	if isError(condition) {
-		// condition.Free() // Not freed if returned
-		return condition
-	}
-
-	if isTruthy(condition) {
-		// condition.Free() // Free the condition
-		// Evaluate the consequence block
-		res := i.eval(ie.Consequence, env)
-		// The result 'res' is returned and managed by the caller.
-		return res
-	} else if ie.Alternative != nil {
-		// condition.Free() // Free the condition
-		// Evaluate the alternative block
-		res := i.eval(ie.Alternative, env)
-		// The result 'res' is returned and managed by the caller.
-		return res
-	} else {
-		// condition.Free() // Free the condition
-		// No alternative, return NULL
-		// NULL.Free() // Global constant
-		return NULL
-	}
-}
-
-// isTruthy determines if an object is considered 'true' in a boolean context.
-func isTruthy(obj object.Object) bool {
-	switch obj {
-	case NULL:
-		// NULL.Free() // Global constant
-		return false
-	case TRUE:
-		// TRUE.Free() // Global constant
-		return true
-	case FALSE:
-		// FALSE.Free() // Global constant
-		return false
-	default:
-		// obj.Free() // Free the operand
-		return true
-	}
-}
-
-// evalIdentifier evaluates an identifier by looking it up in the environment.
-func (i *Interpreter) evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
-	if val, ok := env.Get(node.Value); ok {
-		// The object 'val' is returned and still in use in the environment.
-		// It should not be freed here.
-		return val
-	}
-	if builtin, ok := i.builtins[node.Value]; ok {
-		// Builtin is returned and is a global constant.
-		// builtin.Free() // Usually not needed for global constants/builtins
-		return builtin
-	}
-	// Error object doesn't need Free here as it's returned
-	return newError("identifier not found: " + node.Value)
-}
-
-// evalExpressions evaluates a list of expressions.
-// It returns a slice of evaluated objects.
-// If any expression results in an error, it returns a slice containing just that error.
-func (i *Interpreter) evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
-	results := make([]object.Object, len(exps))
-	for idx, expr := range exps {
-		results[idx] = i.eval(expr, env)
-		if isError(results[idx]) {
-			// در صورت خطا، آزادسازی موارد قبلی
-			for j := 0; j < idx; j++ {
-				results[j].Free()
-			}
-			return []object.Object{results[idx]}
+	// Handle null comparisons
+	if left.Type() == object.NULL_OBJ || right.Type() == object.NULL_OBJ {
+		switch op {
+		case "==":
+			return nativeBoolToBooleanObject(left.Type() == right.Type())
+		case "!=":
+			return nativeBoolToBooleanObject(left.Type() != right.Type())
+		default:
+			return newError("null can only be compared with == or !=")
 		}
 	}
-	return results
-}
 
-func (i *Interpreter) applyFunction(fn object.Object, args []object.Object) object.Object {
-	fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: Applying function of type", fn.Type())
-
-	switch fn := fn.(type) {
-	case *object.Function:
-		fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: It's a user-defined function")
-		env := object.NewEnclosedEnvironment(fn.Env)
-		for idx, param := range fn.Parameters {
-			fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: Setting parameter", param.Value, "to", args[idx].Inspect())
-			env.Set(param.Value, args[idx])
+	// Type-based evaluation
+	switch l := left.(type) {
+	case *object.Integer:
+		if r, ok := right.(*object.Integer); ok {
+			return evalIntegerInfix(op, l.Value, r.Value)
 		}
-		result := i.eval(fn.Body, env)
-		fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: Function body evaluated")
-		return i.unwrapReturnValue(result)
-	case *object.Builtin:
-		fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: builtin of type", fn.Type())
-		result := fn.Fn(args...)
-		fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: returned", result.Type())
-		return result
-
-	default:
-		fmt.Fprintln(os.Stderr, "[DEBUG] applyFunction: Not a function, type is", fn.Type())
-		for _, a := range args {
-			a.Free()
-		}
-		return newError("not a function: %s", fn.Type())
-	}
-}
-
-// unwrapReturnValue برداشتن مقدار از داخل ReturnValue
-func (i *Interpreter) unwrapReturnValue(obj object.Object) object.Object {
-	if returnValue, ok := obj.(*object.ReturnValue); ok {
-		return returnValue.Value
-	}
-	return obj
-}
-
-// evalIndexExpression: پردازش عبارت ایندکس‌گذاری (مثل array[index] یا map[key])
-func (i *Interpreter) evalIndexExpression(left, index object.Object) object.Object {
-	switch {
-	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
-		return i.evalArrayIndexExpression(left, index)
-	case left.Type() == object.MAP_OBJ && index.Type() == object.STRING_OBJ:
-		return i.evalMapIndexExpression(left, index)
-	default:
-		return newError("index operator not supported: %s[%s]", left.Type(), index.Type())
-	}
-}
-
-// evalArrayIndexExpression: پردازش ایندکس‌گذاری آرایه‌ها
-func (i *Interpreter) evalArrayIndexExpression(array, index object.Object) object.Object {
-	arrayObject := array.(*object.Array)
-	idx := index.(*object.Integer).Value
-	max := int64(len(arrayObject.Elements) - 1)
-
-	if idx < 0 || idx > max {
-		return NULL
-	}
-
-	// برگرداندن مستقیم عنصر آرایه بدون پیچیدگی اضافی
-	return arrayObject.Elements[idx]
-}
-
-// evalMapIndexExpression: پردازش ایندکس‌گذاری مپ‌ها
-func (i *Interpreter) evalMapIndexExpression(mapObj, key object.Object) object.Object {
-	// بررسی اینکه آیا شیء یک مپ است
-	if mapObject, ok := mapObj.(*object.Map); ok {
-		// جستجوی کلید در مپ
-		value, ok := mapObject.Pairs[key]
-		if !ok {
-			return NULL
-		}
-		return value
-	}
-
-	// بررسی اینکه آیا شیء یک هش است
-	if hashObject, ok := mapObj.(*object.Hash); ok {
-		// بررسی اینکه کلید قابل هش شدن است
-		hashableKey, ok := key.(object.Hashable)
-		if !ok {
-			return newError("unusable as hash key: %s", key.Type())
+		if r, ok := right.(*object.Float); ok {
+			return evalFloatInfix(op, float64(l.Value), r.Value)
 		}
 
-		// جستجوی کلید در هش
-		pair, ok := hashObject.Pairs[hashableKey.HashKey()]
-		if !ok {
-			return NULL
+	case *object.Float:
+		rf := toFloat(right)
+		return evalFloatInfix(op, l.Value, rf)
+
+	case *object.String:
+		if r, ok := right.(*object.String); ok {
+			return evalStringInfix(op, l.Value, r.Value)
 		}
 
-		// برگرداندن مقدار مربوط به کلید
-		return pair.Value
+	case *object.Boolean:
+		if r, ok := right.(*object.Boolean); ok {
+			return evalBooleanInfix(op, l.Value, r.Value)
+		}
 	}
 
-	return newError("index operator not supported: %s[%s]", mapObj.Type(), key.Type())
+	return newError("unknown operator: %s %s %s", left.Type(), op, right.Type())
 }
 
-// newError creates a new error object.
-func newError(format string, a ...interface{}) *object.Error {
-	// Error object doesn't need Free method called on it here as it's being created to be returned.
-	return &object.Error{Message: fmt.Sprintf(format, a...)}
-}
-
-// isError checks if an object is an error.
-func isError(obj object.Object) bool {
-	if obj != nil {
-		return obj.Type() == object.ERROR_OBJ
-	}
-	return false
-}
-
-// helper for integer-integer operations
-func evalIntegerInteger(op string, lv, rv int64) object.Object {
+func evalIntegerInfix(op string, lv, rv int64) object.Object {
 	switch op {
 	case "+":
 		return object.NewInteger(lv + rv)
@@ -1058,12 +1160,16 @@ func evalIntegerInteger(op string, lv, rv int64) object.Object {
 		return object.NewInteger(lv * rv)
 	case "/":
 		if rv == 0 {
-			return newError("division by zero")
+			// Create and throw ZeroDivisionError
+			exception := object.NewException(object.ZERO_DIV_ERROR, "division by zero")
+			return object.NewExceptionSignal(exception)
 		}
 		return object.NewInteger(lv / rv)
 	case "%":
 		if rv == 0 {
-			return newError("division by zero")
+			// Create and throw ZeroDivisionError
+			exception := object.NewException(object.ZERO_DIV_ERROR, "modulo by zero")
+			return object.NewExceptionSignal(exception)
 		}
 		return object.NewInteger(lv % rv)
 	case "<":
@@ -1078,13 +1184,12 @@ func evalIntegerInteger(op string, lv, rv int64) object.Object {
 		return nativeBoolToBooleanObject(lv == rv)
 	case "!=":
 		return nativeBoolToBooleanObject(lv != rv)
+	default:
+		return newError("unknown integer operator: %s", op)
 	}
-	return newError("unknown integer operator: %s %s %s",
-		object.INTEGER_OBJ, op, object.INTEGER_OBJ)
 }
 
-// helper for float-float operations
-func evalFloatFloat(op string, lv, rv float64) object.Object {
+func evalFloatInfix(op string, lv, rv float64) object.Object {
 	switch op {
 	case "+":
 		return object.NewFloat(lv + rv)
@@ -1094,7 +1199,9 @@ func evalFloatFloat(op string, lv, rv float64) object.Object {
 		return object.NewFloat(lv * rv)
 	case "/":
 		if rv == 0.0 {
-			return newError("division by zero")
+			// Create and throw ZeroDivisionError
+			exception := object.NewException(object.ZERO_DIV_ERROR, "division by zero")
+			return object.NewExceptionSignal(exception)
 		}
 		return object.NewFloat(lv / rv)
 	case "<":
@@ -1109,155 +1216,408 @@ func evalFloatFloat(op string, lv, rv float64) object.Object {
 		return nativeBoolToBooleanObject(lv == rv)
 	case "!=":
 		return nativeBoolToBooleanObject(lv != rv)
+	default:
+		return newError("unknown float operator: %s", op)
 	}
-	return newError("unknown float operator: %s %s %s",
-		object.FLOAT_OBJ, op, object.FLOAT_OBJ)
 }
 
-func (i *Interpreter) evalBasicInfix(op string, left, right object.Object) object.Object {
-	switch l := left.(type) {
-	case *object.Integer:
-		switch r := right.(type) {
-		case *object.Integer:
-			return evalIntegerInteger(op, l.Value, r.Value)
-		case *object.Float:
-			// promote left to float
-			lf := float64(l.Value)
-			return evalFloatFloat(op, lf, r.Value)
-		}
-
-	case *object.Float:
-		switch r := right.(type) {
-		case *object.Float:
-			return evalFloatFloat(op, l.Value, r.Value)
-		case *object.Integer:
-			// promote right to float
-			rf := float64(r.Value)
-			return evalFloatFloat(op, l.Value, rf)
-		}
-
-	case *object.String:
-		if op == "+" {
-			return object.NewString(l.Value + right.(*object.String).Value)
-		}
-		if op == "==" || op == "!=" {
-			eq := (l.Value == right.(*object.String).Value)
-			if op == "!=" {
-				eq = !eq
-			}
-			return nativeBoolToBooleanObject(eq)
-		}
-
-	case *object.Boolean:
-		if op == "==" || op == "!=" {
-			eq := (l.Value == right.(*object.Boolean).Value)
-			if op == "!=" {
-				eq = !eq
-			}
-			return nativeBoolToBooleanObject(eq)
-		}
+func evalStringInfix(op string, lv, rv string) object.Object {
+	switch op {
+	case "+":
+		return object.NewString(lv + rv)
+	case "==":
+		return nativeBoolToBooleanObject(lv == rv)
+	case "!=":
+		return nativeBoolToBooleanObject(lv != rv)
+	case "<":
+		return nativeBoolToBooleanObject(lv < rv)
+	case ">":
+		return nativeBoolToBooleanObject(lv > rv)
+	case "<=":
+		return nativeBoolToBooleanObject(lv <= rv)
+	case ">=":
+		return nativeBoolToBooleanObject(lv >= rv)
+	default:
+		return newError("unknown string operator: %s", op)
 	}
-
-	// fallback: unsupported types or operators
-	return newError("type mismatch or unknown operator: %s %s %s",
-		left.Type(), op, right.Type())
 }
 
-// evalWhile: اجرای while تا وقتی شرط true باشد
-// Define BreakSignal and ContinueSignal in object package
-// and handle in evalWhile and evalFor
-// In evalWhile:
-// evalWhile: اجرای while تا وقتی شرط true باشد
-// evalWhile: اجرای while تا وقتی شرط true باشد
+func evalBooleanInfix(op string, lv, rv bool) object.Object {
+	switch op {
+	case "==":
+		return nativeBoolToBooleanObject(lv == rv)
+	case "!=":
+		return nativeBoolToBooleanObject(lv != rv)
+	default:
+		return newError("unknown boolean operator: %s", op)
+	}
+}
+
+func (i *Interpreter) evalIfExpression(ie *ast.IfExpression, env *object.Environment) object.Object {
+	condition := i.eval(ie.Condition, env)
+	if isError(condition) {
+		return condition
+	}
+
+	if isTruthy(condition) {
+		return i.eval(ie.Consequence, env)
+	} else if ie.Alternative != nil {
+		return i.eval(ie.Alternative, env)
+	}
+
+	return NULL
+}
+
+func (i *Interpreter) evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	if val, ok := env.Get(node.Value); ok {
+		return val
+	}
+	if builtin, ok := i.builtins[node.Value]; ok {
+		return builtin
+	}
+	return newError("identifier not found: " + node.Value)
+}
+
+func (i *Interpreter) evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
+	results := make([]object.Object, 0, len(exps))
+
+	for _, expr := range exps {
+		evaluated := i.eval(expr, env)
+		if isError(evaluated) {
+			return []object.Object{evaluated}
+		}
+		results = append(results, evaluated)
+	}
+
+	return results
+}
+
+func (i *Interpreter) applyFunction(fn object.Object, args []object.Object) object.Object {
+	switch fn := fn.(type) {
+	case *object.Function:
+		if len(args) != len(fn.Parameters) {
+			return newError("wrong number of arguments: expected %d, got %d", len(fn.Parameters), len(args))
+		}
+
+		extendedEnv := object.NewEnclosedEnvironment(fn.Env)
+		for idx, param := range fn.Parameters {
+			extendedEnv.Set(param.Value, args[idx])
+		}
+
+		evaluated := i.eval(fn.Body, extendedEnv)
+		return i.unwrapReturnValue(evaluated)
+
+	case *object.Builtin:
+		return fn.Fn(args...)
+
+	default:
+		return newError("not a function: %s", fn.Type())
+	}
+}
+
+func (i *Interpreter) unwrapReturnValue(obj object.Object) object.Object {
+	if returnValue, ok := obj.(*object.ReturnValue); ok {
+		return returnValue.Value
+	}
+	return obj
+}
+
+func (i *Interpreter) evalIndexExpression(left, index object.Object) object.Object {
+	switch {
+	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
+		return i.evalArrayIndex(left, index)
+	case left.Type() == object.MAP_OBJ:
+		return i.evalMapIndex(left, index)
+	case left.Type() == object.HASH_OBJ:
+		return i.evalHashIndex(left, index)
+	case left.Type() == object.STRING_OBJ && index.Type() == object.INTEGER_OBJ:
+		return i.evalStringIndex(left, index)
+	default:
+		return newError("index operator not supported: %s[%s]", left.Type(), index.Type())
+	}
+}
+
+func (i *Interpreter) evalArrayIndex(array, index object.Object) object.Object {
+	arrayObject := array.(*object.Array)
+	idx := index.(*object.Integer).Value
+
+	if idx < 0 || int(idx) >= len(arrayObject.Elements) {
+		// Create and throw IndexError
+		exception := object.NewException(object.INDEX_ERROR, fmt.Sprintf("array index out of range: %d", idx))
+		return object.NewExceptionSignal(exception)
+	}
+
+	return arrayObject.Elements[idx]
+}
+
+func (i *Interpreter) evalMapIndex(mapObj, key object.Object) object.Object {
+	mapObject := mapObj.(*object.Map)
+	for k, v := range mapObject.Pairs {
+		if object.Equals(k, key) {
+			return v
+		}
+	}
+	return NULL
+}
+
+func (i *Interpreter) evalHashIndex(hashObj, key object.Object) object.Object {
+	hashObject := hashObj.(*object.Hash)
+	hashKey, ok := key.(object.Hashable)
+	if !ok {
+		return newError("unusable as hash key: %s", key.Type())
+	}
+
+	if pair, ok := hashObject.Pairs[hashKey.HashKey()]; ok {
+		return pair.Value
+	}
+	return NULL
+}
+
+func (i *Interpreter) evalStringIndex(str, index object.Object) object.Object {
+	stringObject := str.(*object.String)
+	idx := index.(*object.Integer).Value
+
+	if idx < 0 || int(idx) >= len(stringObject.Value) {
+		return NULL
+	}
+
+	return object.NewString(string(stringObject.Value[idx]))
+}
+
 func (i *Interpreter) evalWhile(ws *ast.WhileStatement, env *object.Environment) object.Object {
 	for {
-		// ارزیابی شرط حلقه
-		cond := i.eval(ws.Condition, env)
-		if isError(cond) {
-			return cond
-		}
-		if !isTruthy(cond) {
-			return NULL
+		condition := i.eval(ws.Condition, env)
+		if isError(condition) {
+			return condition
 		}
 
-		// ارزیابی بدنه‌ی حلقه
-		result := i.eval(ws.Body, env)
+		if !isTruthy(condition) {
+			break
+		}
 
-		// مدیریت سیگنال‌ها با توجه به نیازهای حافظه
-		switch r := result.(type) {
+		// Use same environment for while loop body (no new scope)
+		result := i.evalBlockStatementWithScoping(ws.Body, env, false)
+		switch result.(type) {
 		case *object.BreakSignal:
-			r.Free() // آزاد کردن سیگنال
 			return NULL
 		case *object.ContinueSignal:
-			r.Free() // آزاد کردن سیگنال
 			continue
-		case *object.ReturnValue:
-			return r // توسط فراخوانی‌کننده آزاد می‌شود
-		case *object.Error:
-			return r // توسط فراخوانی‌کننده آزاد می‌شود
+		case *object.ReturnValue, *object.Error, *object.ExceptionSignal:
+			return result
 		}
 	}
+
+	return NULL
 }
 
-// evalFor: اجرای for(init; cond; post) { body }
-// evalFor evaluates a for loop statement.
-// Usage:
-//
-//	for (var i = 0; i < 5; i = i + 1) { ... }
-//
-// In evalFor:
-// evalFor: اجرای for(init; cond; post) { body }
 func (i *Interpreter) evalFor(fs *ast.ForStatement, env *object.Environment) object.Object {
-	// اجرای بخش اولیه‌سازی
+	// Create new scope for the loop
+	loopEnv := object.NewEnclosedEnvironment(env)
+
+	// Execute initialization
 	if fs.Init != nil {
-		initRes := i.eval(fs.Init, env)
-		if isError(initRes) {
-			return initRes
+		if result := i.eval(fs.Init, loopEnv); isError(result) {
+			return result
 		}
 	}
 
 	for {
-		// اگر شرط وجود داشت، آن را ارزیابی کن
+		// Check condition
 		if fs.Condition != nil {
-			cond := i.eval(fs.Condition, env)
-			if isError(cond) {
-				return cond
+			condition := i.eval(fs.Condition, loopEnv)
+			if isError(condition) {
+				return condition
 			}
-			if !isTruthy(cond) {
-				return NULL
+			if !isTruthy(condition) {
+				break
 			}
 		}
 
-		// ایجاد محیط جدید برای بدنه‌ی حلقه
-		blockEnv := object.NewEnclosedEnvironment(env)
-		result := i.eval(fs.Body, blockEnv)
-
-		// مدیریت سیگنال‌ها
-		switch r := result.(type) {
+		// Execute body with loop environment (not new scope)
+		result := i.evalBlockStatementWithScoping(fs.Body, loopEnv, false)
+		switch result.(type) {
 		case *object.BreakSignal:
-			r.Free()
 			return NULL
 		case *object.ContinueSignal:
-			r.Free()
-			// پس از continue، حتماً post را اجرا کن
-			if fs.Post != nil {
-				if postRes := i.eval(fs.Post, env); isError(postRes) {
-					return postRes
-				}
-			}
-			continue
-		case *object.ReturnValue:
-			return r
-		case *object.Error:
-			return r
+			// Continue to post-iteration
+		case *object.ReturnValue, *object.Error, *object.ExceptionSignal:
+			return result
 		}
 
-		// اجرای بخش post (مثلاً i++)
+		// Execute post-iteration
 		if fs.Post != nil {
-			postRes := i.eval(fs.Post, env)
-			if isError(postRes) {
-				return postRes
+			if result := i.eval(fs.Post, loopEnv); isError(result) {
+				return result
 			}
 		}
 	}
+
+	return NULL
+}
+
+func isTruthy(obj object.Object) bool {
+	switch obj {
+	case NULL, FALSE:
+		return false
+	case TRUE:
+		return true
+	default:
+		switch o := obj.(type) {
+		case *object.Integer:
+			return o.Value != 0
+		case *object.Float:
+			return o.Value != 0.0
+		case *object.String:
+			return o.Value != ""
+		default:
+			return true
+		}
+	}
+}
+
+func newError(format string, a ...interface{}) *object.Error {
+	return &object.Error{Message: fmt.Sprintf(format, a...)}
+}
+
+func isError(obj object.Object) bool {
+	return obj != nil && obj.Type() == object.ERROR_OBJ
+}
+
+func (i *Interpreter) evalAssignExpression(node *ast.AssignExpression, env *object.Environment) object.Object {
+	val := i.eval(node.Value, env)
+	if isError(val) {
+		return val
+	}
+
+	switch target := node.Name.(type) {
+	case *ast.Identifier:
+		// Try to update existing variable first, if not found then create new one
+		if !env.Update(target.Value, val) {
+			env.Set(target.Value, val)
+		}
+	case *ast.IndexExpression:
+		return i.evalIndexAssignment(target, val, env)
+	default:
+		return newError("invalid assignment target: expected identifier or index expression, got %T", target)
+	}
+
+	return val
+}
+
+// ===== EXCEPTION HANDLING EVALUATION =====
+
+// evalTryStatement evaluates try-catch-finally blocks
+func (i *Interpreter) evalTryStatement(node *ast.TryStatement, env *object.Environment) object.Object {
+	var result object.Object = NULL
+	var exception *object.ExceptionSignal
+
+	// Execute try block
+	tryResult := i.evalBlockStatement(node.TryBlock, env)
+
+	// Check if an exception was thrown
+	if exceptionSignal, isException := tryResult.(*object.ExceptionSignal); isException {
+		exception = exceptionSignal
+		result = NULL
+
+		// Try to find a matching catch clause
+		caught := false
+		for _, catchClause := range node.CatchClauses {
+			if i.matchesExceptionType(exception.Exception, catchClause) {
+				// Create new scope for catch block
+				catchEnv := object.NewEnclosedEnvironment(env)
+
+				// Bind exception to variable if specified
+				if catchClause.Variable != nil {
+					catchEnv.Set(catchClause.Variable.Value, exception.Exception)
+				}
+
+				// Execute catch block
+				catchResult := i.evalBlockStatement(catchClause.CatchBlock, catchEnv)
+
+				// If catch block throws another exception, propagate it
+				if exceptionSignal, isException := catchResult.(*object.ExceptionSignal); isException {
+					exception = exceptionSignal
+				} else {
+					// Exception was handled
+					exception = nil
+					result = catchResult
+					caught = true
+					break
+				}
+			}
+		}
+
+		// If exception wasn't caught, we'll re-throw it after finally
+		if !caught {
+			result = exception
+		}
+	} else {
+		// No exception in try block
+		result = tryResult
+	}
+
+	// Execute finally block if present
+	if node.FinallyBlock != nil {
+		finallyResult := i.evalBlockStatement(node.FinallyBlock, env)
+
+		// If finally block throws an exception, it takes precedence
+		if exceptionSignal, isException := finallyResult.(*object.ExceptionSignal); isException {
+			return exceptionSignal
+		}
+
+		// If finally block returns a value, it takes precedence
+		if returnValue, isReturn := finallyResult.(*object.ReturnValue); isReturn {
+			return returnValue
+		}
+
+		// If finally block has break/continue, it takes precedence
+		if _, isBreak := finallyResult.(*object.BreakSignal); isBreak {
+			return finallyResult
+		}
+		if _, isContinue := finallyResult.(*object.ContinueSignal); isContinue {
+			return finallyResult
+		}
+	}
+
+	return result
+}
+
+// evalThrowStatement evaluates throw/raise statements
+func (i *Interpreter) evalThrowStatement(node *ast.ThrowStatement, env *object.Environment) object.Object {
+	exceptionObj := i.eval(node.Exception, env)
+	if isError(exceptionObj) {
+		return exceptionObj
+	}
+
+	// If the thrown object is already an exception, use it directly
+	if exception, ok := exceptionObj.(*object.Exception); ok {
+		return object.NewExceptionSignal(exception)
+	}
+
+	// If it's a string, create a RuntimeError with the message
+	if str, ok := exceptionObj.(*object.String); ok {
+		exception := object.NewException(object.RUNTIME_ERROR, str.Value)
+		return object.NewExceptionSignal(exception)
+	}
+
+	// For other types, convert to string and create RuntimeError
+	message := exceptionObj.Inspect()
+	exception := object.NewException(object.RUNTIME_ERROR, message)
+	return object.NewExceptionSignal(exception)
+}
+
+// matchesExceptionType checks if an exception matches a catch clause
+func (i *Interpreter) matchesExceptionType(exception *object.Exception, catchClause *ast.CatchClause) bool {
+	// If no exception type specified, catch all exceptions
+	if catchClause.ExceptionType == nil {
+		return true
+	}
+
+	// Check if exception type matches
+	return exception.ExceptionType == catchClause.ExceptionType.Value
+}
+
+// Helper function to check if an object is an exception signal
+func isExceptionSignal(obj object.Object) bool {
+	return obj != nil && obj.Type() == object.ObjectType(object.EXCEPTION_SIGNAL)
 }
