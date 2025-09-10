@@ -36,7 +36,19 @@ chmod +x install.sh
 
 The script will guide you through the installation process and offer options for system-wide or local installation.
 
-#### Method 2: Manual Installation
+#### Method 2: Automatic Installation (Termux on Android)
+
+For Termux users on Android, there's a specific installation script:
+
+```bash
+# Make the script executable and run it
+chmod +x install_termux.sh
+./install_termux.sh
+```
+
+This script is optimized for the Termux environment and will install DariX to the appropriate location.
+
+#### Method 3: Manual Installation
 
 1.  Clone the repository:
     ```bash
@@ -52,7 +64,7 @@ The script will guide you through the installation process and offer options for
     sudo cp darix /usr/local/bin/
     ```
 
-#### Method 3: Local Installation Script
+#### Method 4: Local Installation Script
 
 If you have the source code locally, you can use the provided local installation script:
 
