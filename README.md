@@ -40,7 +40,7 @@ The script will guide you through the installation process and offer options for
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/your-username/darix.git
+    git clone https://github.com/shayanheidari01/darix.git
     cd darix
     ```
 2.  Build the interpreter:
