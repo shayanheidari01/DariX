@@ -1,7 +1,6 @@
+# DariX Programming Language
 
-# Darix Programming Language
-
-Darix is a dynamically typed, interpreted programming language implemented in Go. It features a C-like syntax and supports fundamental programming constructs such as variables, functions, control flow (if/else, while, for), data structures (arrays, maps), and a rich set of built-in functions.
+DariX is a dynamically typed, interpreted programming language implemented in Go. It features a C-like syntax and supports fundamental programming constructs such as variables, functions, control flow (if/else, while, for), data structures (arrays, maps), and a rich set of built-in functions. DariX now includes a comprehensive exception handling system similar to Python's model.
 
 ## Features
 
@@ -12,8 +11,10 @@ Darix is a dynamically typed, interpreted programming language implemented in Go
 *   **Data Structures:** Built-in support for arrays and maps (dictionaries).
 *   **Control Flow:** `if`/`else`, `while`, and C-style `for` loops.
 *   **Loop Control:** `break` and `continue` statements.
-*   **Modularity:** Import other Darix files as modules.
+*   **Modularity:** Import other DariX files as modules.
+*   **Exception Handling:** Try-catch-finally blocks with multiple exception types.
 *   **Built-in Functions:** A standard library of useful functions for common tasks.
+*   **Enhanced REPL:** Multi-line input support with automatic grouping detection.
 
 ## Getting Started
 
@@ -23,6 +24,20 @@ Darix is a dynamically typed, interpreted programming language implemented in Go
 
 ### Installation
 
+#### Method 1: Automatic Installation (Linux)
+
+For Linux systems, you can use the provided installation script:
+
+```bash
+# Make the script executable and run it
+chmod +x install.sh
+./install.sh
+```
+
+The script will guide you through the installation process and offer options for system-wide or local installation.
+
+#### Method 2: Manual Installation
+
 1.  Clone the repository:
     ```bash
     git clone https://github.com/your-username/darix.git
@@ -30,21 +45,35 @@ Darix is a dynamically typed, interpreted programming language implemented in Go
     ```
 2.  Build the interpreter:
     ```bash
-    go build -o darix main.go # Assuming main.go is your entry point
+    go build -o darix main.go
     ```
-    *(Note: You'll need to create a `main.go` file that uses the packages provided.)*
+3.  (Optional) Install system-wide:
+    ```bash
+    sudo cp darix /usr/local/bin/
+    ```
 
-### Running Darix Code
+#### Method 3: Local Installation Script
 
-You can run Darix code in two ways:
+If you have the source code locally, you can use the provided local installation script:
+
+```bash
+chmod +x install_local.sh
+./install_local.sh
+```
+
+This script will automatically install DariX to `~/.local/bin` directory.
+
+### Running DariX Code
+
+You can run DariX code in two ways:
 
 1.  **Execute a `.drx` file:**
     ```bash
-    ./darix path/to/your/script.drx
+    darix path/to/your/script.drx
     ```
 2.  **Start the REPL (Read-Eval-Print Loop):**
     ```bash
-    ./darix
+    darix
     ```
 
 ## Language Guide
@@ -61,7 +90,7 @@ Variables are declared using the `var` keyword. Assignment to existing variables
 
 ```drx
 var x = 5;
-var name = "Darix";
+var name = "DariX";
 var isActive = true;
 
 // Re-assigning
@@ -71,12 +100,12 @@ name = "New Name";
 
 ### Data Types
 
-Darix supports the following basic data types:
+DariX supports the following basic data types:
 
 *   **Integer:** `42`, `-10`
 *   **Float:** `3.14`, `-0.001`
 *   **Boolean:** `true`, `false`
-*   **String:** `"Hello"`, `"Darix"`
+*   **String:** `"Hello"`, `"DariX"`
 *   **Array:** `[1, 2, 3]`, `["a", "b", "c"]`
 *   **Map:** `{"key1": "value1", "key2": 100}`
 *   **Null:** Represented internally, evaluates to `false` in boolean contexts.
@@ -85,7 +114,7 @@ Darix supports the following basic data types:
 
 *   **Arithmetic:** `+`, `-`, `*`, `/`, `%` (Modulo)
 *   **Comparison:** `<`, `>`, `<=`, `>=`, `==`, `!=`
-*   **Logical:** `!` (NOT), `&&` (AND - often achieved via nested `if`), `||` (OR - often achieved via nested `if`)
+*   **Logical:** `!` (NOT), `&&` (AND), `||` (OR)
 *   **String Concatenation:** `+`
 *   **Unary:** `-` (Negation), `!` (Logical NOT)
 
@@ -163,7 +192,7 @@ func greet(name) {
 }
 
 // Calling the function
-greet("Darix");
+greet("DariX");
 
 // Function with return value
 func add(a, b) {
@@ -244,34 +273,98 @@ print("PI is:", PI);
 print("Square of 4 is:", square(4));
 ```
 
+### Exception Handling
+
+DariX includes a comprehensive exception handling system with try-catch-finally blocks:
+
+```drx
+try {
+    var result = 10 / 0; // Automatically throws ZeroDivisionError
+} catch (ZeroDivisionError e) {
+    print("Caught division by zero:", e);
+} finally {
+    print("This always executes");
+}
+```
+
+Multiple catch clauses are supported:
+
+```drx
+try {
+    processData();
+} catch (ValueError e) {
+    print("Value error:", e);
+} catch (TypeError e) {
+    print("Type error:", e);
+} catch (e) {
+    print("Any other exception:", e);
+}
+```
+
+Built-in exception types include:
+*   `ValueError` - Invalid value provided
+*   `TypeError` - Incorrect type used
+*   `RuntimeError` - General runtime error
+*   `IndexError` - Array index out of bounds (thrown automatically)
+*   `KeyError` - Map key not found
+*   `ZeroDivisionError` - Division by zero (thrown automatically)
+
+Creating and throwing exceptions:
+
+```drx
+func validateAge(age) {
+    if (age < 0) {
+        throw ValueError("Age cannot be negative");
+    }
+    if (age > 150) {
+        throw ValueError("Age seems unrealistic");
+    }
+    return age;
+}
+
+try {
+    var validAge = validateAge(-5);
+} catch (ValueError e) {
+    print("Invalid age:", e);
+}
+```
+
 ### Built-in Functions
 
-Darix comes with a set of built-in functions for common tasks:
+DariX comes with a set of built-in functions for common tasks:
 
 *   `print(...args)`: Prints arguments to standard output, separated by spaces, followed by a newline.
 *   `len(obj)`: Returns the length of a string, array, or map.
-*   `str(obj)`: Converts an integer or boolean to its string representation.
+*   `str(obj)`: Converts an integer, float, or boolean to its string representation.
 *   `int(obj)`: Converts a string (representing an integer) to an integer.
+*   `float(obj)`: Converts a string (representing a float) to a float.
 *   `bool(obj)`: Converts an object to a boolean (following truthiness rules).
 *   `type(obj)`: Returns the type of an object as a string (e.g., "INTEGER", "STRING").
 *   `input([prompt])`: Reads a line of input from the user. An optional prompt string can be provided.
 *   `range([start,] stop[, step])`: Creates an array of integers. Mimics Python's `range`.
-*   `abs(x)`: Returns the absolute value of an integer `x`.
-*   `max(...args)`: Returns the maximum value among the provided integer arguments.
-*   `min(...args)`: Returns the minimum value among the provided integer arguments.
-*   `sum(array)`: Returns the sum of integer elements in an array.
+*   `abs(x)`: Returns the absolute value of a number.
+*   `max(...args)`: Returns the maximum value among the provided arguments.
+*   `min(...args)`: Returns the minimum value among the provided arguments.
+*   `sum(array)`: Returns the sum of elements in an array.
 *   `reverse(obj)`: Returns the reverse of a string or array.
-*   `sorted(array)`: Returns a new sorted array (sorts integers in ascending order).
+*   `sorted(array)`: Returns a new sorted array.
 *   `upper(str)`: Converts a string to uppercase.
 *   `lower(str)`: Converts a string to lowercase.
 *   `trim(str)`: Removes leading and trailing whitespace from a string.
 *   `append(array, ...values)`: Returns a new array with values appended to the end of the original array.
 *   `contains(array, value)`: Checks if an array contains a specific value.
-*   `pow(base, exp)`: Calculates `base` raised to the power of `exp` (both integers).
+*   `pow(base, exp)`: Calculates `base` raised to the power of `exp`.
 *   `clamp(val, min, max)`: Clamps `val` to be within the range [`min`, `max`].
 *   `now()`: Returns the current date and time as a string (RFC3339 format).
 *   `timestamp()`: Returns the current Unix timestamp as an integer.
-*   `exit([code])`: Terminates the program immediately. An optional integer exit code can be provided (defaults to 0).
+*   `exit([code])`: Terminates the program immediately. An optional integer exit code can be provided.
+*   `Exception([type,] message)`: Creates a new exception object.
+*   `ValueError(message)`: Creates a ValueError exception.
+*   `TypeError(message)`: Creates a TypeError exception.
+*   `RuntimeError(message)`: Creates a RuntimeError exception.
+*   `IndexError(message)`: Creates an IndexError exception.
+*   `KeyError(message)`: Creates a KeyError exception.
+*   `ZeroDivisionError(message)`: Creates a ZeroDivisionError exception.
 
 ## Contributing
 
