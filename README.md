@@ -52,7 +52,7 @@ This script is optimized for the Termux environment and will install DariX to th
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/your-username/darix.git
+    git clone https://github.com/shayanheidari01/darix.git
     cd darix
     ```
 2.  Build the interpreter:
