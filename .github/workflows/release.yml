@@ -75,13 +75,35 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: auto-${{ github.sha }}
-          name: DariX ${{ steps.version.outputs.version }} Auto Release ${{ github.sha }}
+          name: DariX ${{ steps.version.outputs.version }}
           body: |
-            Automatic release of DariX version ${{ steps.version.outputs.version }}
+            ## DariX ${{ steps.version.outputs.version }} Release
 
-            Built from commit ${{ github.sha }}
+            Automatic release built from commit ${{ github.sha }}.
 
-            Binaries attached.
+            ### Installation
+
+            #### Prerequisites
+            * Go (1.21+ recommended)
+
+            #### Download and Install
+            1. Download the appropriate binary for your platform from the assets below.
+            2. Make the binary executable (on Linux/macOS): `chmod +x darix-<os>-<arch>`
+            3. (Optional) Move to a directory in your PATH: `sudo cp darix-<os>-<arch> /usr/local/bin/darix`
+
+            #### Platforms
+            - Linux AMD64
+            - Windows AMD64 (.exe)
+            - macOS AMD64
+            - Android ARM64 (for Termux)
+
+            ### Usage
+            ```bash
+            darix run your_script.dax
+            darix repl  # Interactive mode
+            ```
+
+            For more information, see the [README](https://github.com/shayanheidari01/darix/blob/main/README.md).
           files: ./artifacts/**/*
 
       - name: Bump version
