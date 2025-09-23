@@ -125,6 +125,7 @@ func (e *Error) Free() {
 }
 
 type Function struct {
+	Name       string
 	Parameters []*ast.Identifier
 	Body       *ast.BlockStatement
 	Env        *Environment
@@ -138,6 +139,10 @@ func (f *Function) Inspect() string {
 		params[i] = p.String()
 	}
 	out.WriteString("func")
+	if f.Name != "" {
+		out.WriteString(" ")
+		out.WriteString(f.Name)
+	}
 	out.WriteString("(")
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") {\n")

@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"darix/ast"
 	"darix/compiler"
 	"darix/interpreter"
 	"darix/lexer"
@@ -12,6 +13,7 @@ import (
 	"darix/internal/version"
 	"darix/vm"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -21,11 +23,12 @@ func main() {
 		cmd := os.Args[1]
 		switch cmd {
 		case "run":
-			if len(os.Args) < 3 {
-				fmt.Println("Usage: darix run <file.dax>")
+			backend, file, err := parseRunArgs(os.Args[2:])
+			if err != nil || file == "" {
+				fmt.Println("Usage: darix run [--backend=auto|vm|interp] <file.dax|->")
 				os.Exit(1)
 			}
-			runFile(os.Args[2])
+			runFileWithOptions(file, backend)
 			return
 		case "repl":
 			startRepl()
@@ -36,6 +39,13 @@ func main() {
 				os.Exit(1)
 			}
 			runCode(os.Args[2])
+			return
+		case "disasm":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: darix disasm <file.dax>")
+				os.Exit(1)
+			}
+			disasmFile(os.Args[2])
 			return
 		case "version", "-v", "--version":
 			fmt.Println(version.String())
@@ -69,50 +79,31 @@ func runCode(code string) {
 		os.Exit(1)
 	}
 
-	// Try compiling to bytecode and running on VM first
-	comp := compiler.New()
-	if err := comp.Compile(program); err == nil {
-		bc := comp.Bytecode()
-		machine := vm.New(bc)
-		result := machine.Run()
-		if result != nil {
-			switch result.Type() {
-			case object.ERROR_OBJ:
-				fmt.Printf("Runtime error: %s\n", result.Inspect())
-				os.Exit(1)
-			case object.ObjectType(object.EXCEPTION_SIGNAL):
-				fmt.Printf("Unhandled exception: %s\n", result.Inspect())
-				os.Exit(1)
-			}
-		}
-		return
-	}
-	// Fallback to interpreter
-	inter := interpreter.New()
-	result := inter.Interpret(program)
-	if result != nil {
-		switch result.Type() {
-		case object.ERROR_OBJ:
-			fmt.Printf("Runtime error: %s\n", result.Inspect())
-			os.Exit(1)
-		case object.ObjectType(object.EXCEPTION_SIGNAL):
-			fmt.Printf("Unhandled exception: %s\n", result.Inspect())
-			os.Exit(1)
-		}
-	}
+	executeProgram(program, "<eval>", "auto")
 }
 
 func runFile(filename string) {
-	content, err := os.ReadFile(filename)
+	runFileWithOptions(filename, "auto")
+}
+
+func runFileWithOptions(filename, backend string) {
+	var content []byte
+	var err error
+	displayName := filename
+	if filename == "-" {
+		content, err = io.ReadAll(os.Stdin)
+		displayName = "<stdin>"
+	} else {
+		content, err = os.ReadFile(filename)
+	}
 	if err != nil {
 		fmt.Printf("Error reading file: %s\n", err)
 		os.Exit(1)
 	}
 
-	l := lexer.NewWithFile(string(content), filename)
+	l := lexer.NewWithFile(string(content), displayName)
 	p := parser.New(l)
 	program := p.ParseProgram()
-
 	if len(p.Errors()) != 0 {
 		for _, msg := range p.Errors() {
 			fmt.Printf("Parse error: %s\n", msg)
@@ -120,18 +111,7 @@ func runFile(filename string) {
 		os.Exit(1)
 	}
 
-	inter := interpreter.New()
-	result := inter.Interpret(program)
-	if result != nil {
-		switch result.Type() {
-		case object.ERROR_OBJ:
-			fmt.Printf("Runtime error: %s\n", result.Inspect())
-			os.Exit(1)
-		case object.ObjectType(object.EXCEPTION_SIGNAL):
-			fmt.Printf("Unhandled exception: %s\n", result.Inspect())
-			os.Exit(1)
-		}
-	}
+	executeProgram(program, displayName, backend)
 }
 
 func startRepl() {
@@ -210,7 +190,8 @@ func startRepl() {
 		if result != nil {
 			switch result.Type() {
 			case object.ERROR_OBJ:
-				fmt.Printf("Runtime error: %s\n", result.Inspect())
+				// Already formatted by runtime; print as-is
+				fmt.Println(result.Inspect())
 			case object.NULL_OBJ:
 				// خالی
 			default:
@@ -224,12 +205,135 @@ func startRepl() {
 }
 
 func printHelp() {
-    fmt.Println("DariX command line")
-    fmt.Println()
-    fmt.Println("Usage:")
-    fmt.Println("  darix run <file.dax>    Run a DariX script file (.dax)")
-    fmt.Println("  darix repl              Start interactive REPL")
-    fmt.Println("  darix eval \"<code>\"    Evaluate a code snippet")
-    fmt.Println("  darix version           Show version info")
-    fmt.Println("  darix help              Show this help")
+	fmt.Println("DariX command line")
+	fmt.Println()
+	fmt.Println("Usage:")
+	fmt.Println("  darix run [--backend=auto|vm|interp] <file.dax|->  Run a script (use '-' for stdin)")
+	fmt.Println("  darix disasm <file.dax>                            Disassemble bytecode")
+	fmt.Println("  darix repl                                         Start interactive REPL")
+	fmt.Println("  darix eval \"<code>\"                                 Evaluate a code snippet")
+	fmt.Println("  darix version                                      Show version info")
+	fmt.Println("  darix help                                         Show this help")
+}
+
+// parseRunArgs parses flags for the 'run' subcommand
+func parseRunArgs(args []string) (backend, file string, err error) {
+	backend = "auto"
+	for _, a := range args {
+		if strings.HasPrefix(a, "--backend=") {
+			v := strings.TrimPrefix(a, "--backend=")
+			switch v {
+			case "auto", "vm", "interp":
+				backend = v
+			default:
+				return "", "", fmt.Errorf("invalid backend: %s", v)
+			}
+			continue
+		}
+		if strings.HasPrefix(a, "--") {
+			return "", "", fmt.Errorf("unknown flag: %s", a)
+		}
+		if file == "" {
+			file = a
+		} else {
+			return "", "", fmt.Errorf("unexpected argument: %s", a)
+		}
+	}
+	return backend, file, nil
+}
+
+// executeProgram runs an AST program using the requested backend selection
+func executeProgram(program *ast.Program, displayName, backend string) {
+	if backend == "interp" {
+		inter := interpreter.New()
+		result := inter.Interpret(program)
+		handleRuntimeResult(result)
+		return
+	}
+	if backend == "vm" {
+		comp := compiler.New()
+		if err := comp.Compile(program); err != nil {
+			fmt.Println("VM backend error: unsupported feature for VM")
+			os.Exit(1)
+		}
+		bc := comp.Bytecode()
+		machine := vm.New(bc)
+		result := machine.Run()
+		handleRuntimeResult(result)
+		return
+	}
+	// auto
+	comp := compiler.New()
+	if err := comp.Compile(program); err == nil {
+		bc := comp.Bytecode()
+		machine := vm.New(bc)
+		result := machine.Run()
+		if !handledAsErrorOrException(result) {
+			return
+		}
+		os.Exit(1)
+	}
+	inter := interpreter.New()
+	result := inter.Interpret(program)
+	handleRuntimeResult(result)
+}
+
+// handleRuntimeResult prints error/exception consistently
+func handleRuntimeResult(result object.Object) {
+	if result == nil {
+		return
+	}
+	switch result.Type() {
+	case object.ERROR_OBJ:
+		fmt.Println(result.Inspect())
+		os.Exit(1)
+	case object.ObjectType(object.EXCEPTION_SIGNAL):
+		fmt.Println("Unhandled exception:\n" + result.Inspect())
+		os.Exit(1)
+	default:
+		// Do nothing for other results in file/eval modes
+	}
+}
+
+// handledAsErrorOrException returns true if result is error/exception and got printed
+func handledAsErrorOrException(result object.Object) bool {
+	if result == nil {
+		return false
+	}
+	switch result.Type() {
+	case object.ERROR_OBJ:
+		fmt.Println(result.Inspect())
+		return true
+	case object.ObjectType(object.EXCEPTION_SIGNAL):
+		fmt.Println("Unhandled exception:\n" + result.Inspect())
+		return true
+	default:
+		return false
+	}
+}
+
+// disasmFile compiles a source file and prints its bytecode disassembly
+func disasmFile(filename string) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		fmt.Printf("Error reading file: %s\n", err)
+		os.Exit(1)
+	}
+	l := lexer.NewWithFile(string(content), filename)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) != 0 {
+		for _, msg := range p.Errors() {
+			fmt.Printf("Parse error: %s\n", msg)
+		}
+		os.Exit(1)
+	}
+	comp := compiler.New()
+	if err := comp.Compile(program); err != nil {
+		fmt.Println("Compilation failed for disassembly: unsupported feature for VM")
+		os.Exit(1)
+	}
+	bc := comp.Bytecode()
+	fmt.Println("# Bytecode Instructions:")
+	fmt.Println(bc.Instructions.String())
 }

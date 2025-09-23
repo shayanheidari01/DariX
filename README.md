@@ -1,54 +1,31 @@
 # DariX Programming Language
 
-DariX is a dynamically typed, interpreted programming language implemented in Go. It features a C-like syntax and supports fundamental programming constructs such as variables, functions, control flow (if/else, while, for), data structures (arrays, maps), and a rich set of built-in functions. DariX now includes a comprehensive exception handling system similar to Python's model.
+![DariX Logo](DariX.png)
+
+DariX is a dynamically typed programming language implemented in Go with a compiler + bytecode VM design and an interpreter fallback. It features a C-like syntax and supports variables, functions, control flow (if/else, while, for), arrays/maps, a rich set of built-ins, and a Python-like exception system with improved diagnostics.
 
 ## Features
 
-*   **Dynamic Typing:** Variables do not require explicit type declarations.
-*   **Interpreted:** Code is executed directly by the interpreter.
-*   **C-like Syntax:** Familiar syntax for developers coming from C, Java, or similar languages.
-*   **First-Class Functions:** Functions can be assigned to variables, passed as arguments, and returned from other functions.
-*   **Data Structures:** Built-in support for arrays and maps (dictionaries).
-*   **Control Flow:** `if`/`else`, `while`, and C-style `for` loops.
-*   **Loop Control:** `break` and `continue` statements.
-*   **Modularity:** Import other DariX files as modules.
-*   **Exception Handling:** Try-catch-finally blocks with multiple exception types.
-*   **Built-in Functions:** A standard library of useful functions for common tasks.
-*   **Enhanced REPL:** Multi-line input support with automatic grouping detection.
+*   **Dynamic Typing:** No explicit type annotations required.
+*   **Compiler + Bytecode VM:** Fast VM execution with compiler optimizations. Interpreter exists as a fallback.
+*   **Optimizations:** Constant folding in the compiler and a safe peephole optimizer for common patterns.
+*   **C-like Syntax:** Familiar syntax for C/Java-style developers.
+*   **First-Class Functions:** Pass/return functions freely.
+*   **Data Structures:** Arrays and Maps.
+*   **Control Flow:** `if/else`, `while`, C-style `for`, `break`, `continue`.
+*   **Exception Handling:** Python-inspired try/catch/finally with built-in exception types and stack traces.
+*   **Modules:** Import `.dax` files, plus native Go modules via `import "go:<name>"`.
+*   **Native Modules & FFI:** Built-in `go:fs` (filesystem) and `go:ffi` (reflective foreign function interface).
+*   **Enhanced REPL:** Multi-line input with grouping awareness.
+*   **CLI Tools:** Backend selection (`auto|vm|interp`), disassembler, stdin support.
 
 ## Getting Started
 
 ### Prerequisites
 
-*   Go (version 1.16 or higher recommended)
+*   Go (1.21+ recommended)
 
 ### Installation
-
-#### Method 1: Automatic Installation (Linux)
-
-For Linux systems, you can use the provided installation script:
-
-```bash
-# Make the script executable and run it
-chmod +x install.sh
-./install.sh
-```
-
-The script will guide you through the installation process and offer options for system-wide or local installation.
-
-#### Method 2: Automatic Installation (Termux on Android)
-
-For Termux users on Android, there's a specific installation script:
-
-```bash
-# Make the script executable and run it
-chmod +x install_termux.sh
-./install_termux.sh
-```
-
-This script is optimized for the Termux environment and will install DariX to the appropriate location.
-
-#### Method 3: Manual Installation
 
 1.  Clone the repository:
     ```bash
@@ -64,35 +41,46 @@ This script is optimized for the Termux environment and will install DariX to th
     sudo cp darix /usr/local/bin/
     ```
 
-#### Method 4: Local Installation Script
-
-If you have the source code locally, you can use the provided local installation script:
+To test the installation, run the included test file:
 
 ```bash
-chmod +x install_local.sh
-./install_local.sh
+./darix run test.dax
 ```
 
-This script will automatically install DariX to `~/.local/bin` directory.
+This should output the results of various operations in DariX.
 
 ### Running DariX Code
 
-You can run DariX code in two ways:
+Official source file extension is `.dax`.
 
-1.  **Execute a `.drx` file:**
-    ```bash
-    darix path/to/your/script.drx
-    ```
-2.  **Start the REPL (Read-Eval-Print Loop):**
-    ```bash
-    darix
-    ```
+CLI commands:
+
+```bash
+# Run a file (auto backend tries VM, falls back to interpreter)
+darix run path/to/your/script.dax
+
+# Select backend explicitly
+darix run --backend=vm path/to/your/script.dax
+darix run --backend=interp path/to/your/script.dax
+
+# Read program from stdin
+type script.dax | darix run -
+
+# Disassemble bytecode (requires VM-compatible code)
+darix disasm path/to/your/script.dax
+
+# REPL
+darix repl
+
+# Evaluate a snippet
+darix eval "print(1 + 2 * 3)"
+```
 
 ## Language Guide
 
 ### Hello, World!
 
-```drx
+```dax
 print("Hello, World!");
 ```
 
@@ -100,7 +88,7 @@ print("Hello, World!");
 
 Variables are declared using the `var` keyword. Assignment to existing variables uses the `=` operator.
 
-```drx
+```dax
 var x = 5;
 var name = "DariX";
 var isActive = true;
@@ -134,7 +122,7 @@ DariX supports the following basic data types:
 
 #### If/Else
 
-```drx
+```dax
 var x = 10;
 
 if (x > 5) {
@@ -148,7 +136,7 @@ if (x > 5) {
 
 #### While Loop
 
-```drx
+```dax
 var i = 0;
 while (i < 5) {
     print(i);
@@ -158,7 +146,7 @@ while (i < 5) {
 
 #### For Loop (C-style)
 
-```drx
+```dax
 // for (initialization; condition; post-expression)
 for (var j = 0; j < 3; j = j + 1) {
     print("Iteration:", j);
@@ -180,7 +168,7 @@ for (;;) {
 *   `break`: Exits the innermost `while` or `for` loop immediately.
 *   `continue`: Skips the rest of the current iteration and jumps to the loop's condition/post-expression.
 
-```drx
+```dax
 for (var i = 0; i < 10; i = i + 1) {
     if (i == 3) {
         continue; // Skip printing 3
@@ -197,7 +185,7 @@ for (var i = 0; i < 10; i = i + 1) {
 
 Functions are declared using the `func` keyword.
 
-```drx
+```dax
 // Function declaration
 func greet(name) {
     print("Hello,", name);
@@ -227,7 +215,7 @@ print("Product:", multiply(4, 5)); // Output: Product: 20
 
 Arrays are ordered collections of values.
 
-```drx
+```dax
 var numbers = [1, 2, 3, 4];
 var mixed = [1, "hello", true];
 
@@ -254,7 +242,7 @@ print("Range 0-9 step 2:", range_array3);
 
 Maps are collections of key-value pairs.
 
-```drx
+```dax
 var person = {"name": "Alice", "age": 30};
 print("Name:", person["name"]); // Access by key
 
@@ -268,8 +256,8 @@ print("Map size:", len(person)); // Built-in len function
 
 You can split your code into multiple files and import them using the `import` statement. The imported file is executed in the *same* environment, making its variables and functions available.
 
-**math.drx**
-```drx
+**math.dax**
+```dax
 func square(x) {
     return x * x;
 }
@@ -277,19 +265,135 @@ func square(x) {
 PI = 3.14159; // Exported variable
 ```
 
-**main.drx**
-```drx
-import "math.drx";
+**main.dax**
+```dax
+import "math.dax";
 
 print("PI is:", PI);
 print("Square of 4 is:", square(4));
 ```
 
+## Native Modules & FFI (Go interop)
+
+You can bring Go-powered functionality into DariX in two complementary ways:
+
+- Native modules via `import "go:<name>"`
+- Reflective FFI for direct calls into registered Go functions
+
+Today two native modules ship by default:
+
+- `go:fs` — simple filesystem utilities
+- `go:ffi` — reflective Foreign Function Interface entry point
+
+Notes:
+
+- Importing `go:<name>` currently injects the module's functions directly into the current environment (no namespace object yet). Use prefix-friendly names (e.g., `fs_read`) to avoid collisions.
+- All builtins return either a normal value or an `Error` object on failure; handle errors as needed.
+
+### Using go:fs (filesystem)
+
+```dax
+import "go:fs";
+
+fs_write("hello.txt", "salam dari DariX!");
+print("exists?", fs_exists("hello.txt"));   // true
+print("content:", fs_read("hello.txt"));    // salam dari DariX!
+```
+
+APIs:
+
+- `fs_read(path: string) -> string | Error`
+- `fs_write(path: string, data: string) -> true | Error`
+- `fs_exists(path: string) -> bool | Error`
+
+### Using go:ffi (reflective FFI)
+
+Register your Go function(s) during program init, then call them with `ffi_call` from DariX.
+
+Register in Go (host):
+
+```go
+// cmd/register_math.go
+package main
+
+import (
+    "darix/internal/native"
+    "math"
+)
+
+func init() {
+    native.RegisterFFI("math.Sqrt", math.Sqrt)
+}
+```
+
+Call from DariX:
+
+```dax
+import "go:ffi";
+
+var x = 9;
+var r = ffi_call("math.Sqrt", x);
+print("sqrt:", r); // 3
+```
+
+Type mapping (Go ⇄ DariX):
+
+- Integers ⇄ `INTEGER` (auto-convert among int/uint widths where possible)
+- Floats ⇄ `FLOAT`
+- Booleans ⇄ `BOOLEAN`
+- Strings ⇄ `STRING`
+- Null → nil for interface/pointer/slice/map/func targets; nil/pointers → `null`
+- Multi-return `(T, error)`: if `error != nil` → `Error`, else return `T`
+
+Limitations (current): arrays/maps are not yet auto-mapped to Go slices/maps; extend `ffi.go` if needed.
+
+### Building your own native module (fast path)
+
+For hot paths, native modules avoid reflection. Implement `args ...object.Object -> object.Object` builtins and register them under a module name.
+
+```go
+// internal/native/mycalc.go
+package native
+
+import "darix/object"
+
+func init() {
+    Register("mycalc", map[string]*object.Builtin{
+        "calc_add": {Fn: calcAdd},
+    })
+}
+
+func calcAdd(args ...object.Object) object.Object {
+    if len(args) != 2 {
+        return object.NewError("calc_add: expected 2 args")
+    }
+    a, ok1 := args[0].(*object.Integer)
+    b, ok2 := args[1].(*object.Integer)
+    if !ok1 || !ok2 {
+        return object.NewError("calc_add: both args must be integers")
+    }
+    return object.NewInteger(a.Value + b.Value)
+}
+```
+
+Use it in DariX:
+
+```dax
+import "go:mycalc";
+
+print(calc_add(2, 40)); // 42
+```
+
+### Namespacing & safety
+
+- Namespacing: for now, functions are injected directly. You can prefix names (e.g., `fs_*`, `calc_*`). A future update may keep functions under a module object (e.g., `fs.read`).
+- Safety: `go:fs` and `go:ffi` expose host capabilities. For sandboxed environments, add validation layers or restrict which modules are registered.
+
 ### Exception Handling
 
 DariX includes a comprehensive exception handling system with try-catch-finally blocks:
 
-```drx
+```dax
 try {
     var result = 10 / 0; // Automatically throws ZeroDivisionError
 } catch (ZeroDivisionError e) {
@@ -301,7 +405,7 @@ try {
 
 Multiple catch clauses are supported:
 
-```drx
+```dax
 try {
     processData();
 } catch (ValueError e) {
@@ -323,7 +427,7 @@ Built-in exception types include:
 
 Creating and throwing exceptions:
 
-```drx
+```dax
 func validateAge(age) {
     if (age < 0) {
         throw ValueError("Age cannot be negative");

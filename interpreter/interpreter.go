@@ -4,6 +4,7 @@ package interpreter
 
 import (
 	"darix/ast"
+	"darix/internal/native"
 	"darix/lexer"
 	"darix/object"
 	"darix/parser"
@@ -26,6 +27,7 @@ type Interpreter struct {
 	env           *object.Environment
 	builtins      map[string]*object.Builtin
 	loadedModules map[string]object.Object
+	callStack     []*object.StackFrame
 }
 
 func New() *Interpreter {
@@ -33,6 +35,7 @@ func New() *Interpreter {
 		env:           object.NewEnvironment(),
 		builtins:      make(map[string]*object.Builtin, 32),
 		loadedModules: make(map[string]object.Object, 8),
+		callStack:     []*object.StackFrame{},
 	}
 	inter.initBuiltins()
 	return inter
@@ -44,13 +47,13 @@ func (i *Interpreter) initBuiltins() {
 			Fn: func(args ...object.Object) object.Object {
 				if len(args) == 0 {
 					fmt.Println()
-					return object.NewString("")
+					return NULL
 				}
 				// Optimize for single argument case
 				if len(args) == 1 {
 					result := args[0].Inspect()
 					fmt.Println(result)
-					return object.NewString(result)
+					return NULL
 				}
 				// Use strings.Builder for multiple arguments
 				var builder strings.Builder
@@ -62,7 +65,7 @@ func (i *Interpreter) initBuiltins() {
 				}
 				result := builder.String()
 				fmt.Println(result)
-				return object.NewString(result)
+				return NULL
 			},
 		},
 		"len": {
@@ -691,7 +694,7 @@ func compareObjects(a, b object.Object) int {
 }
 
 func (i *Interpreter) Interpret(program *ast.Program) object.Object {
-    return i.evalProgram(program, i.env)
+	return i.evalProgram(program, i.env)
 }
 
 func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object {
@@ -823,6 +826,7 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 
 	case *ast.FunctionDeclaration:
 		fn := &object.Function{
+			Name:       node.Name.Value,
 			Parameters: node.Parameters,
 			Env:        env,
 			Body:       node.Body,
@@ -846,7 +850,30 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
-		return i.applyFunction(function, args)
+		// Push a call frame (Python-like traceback style) using call site position
+		fnName := "<call>"
+		switch f := function.(type) {
+		case *object.Function:
+			if f.Name != "" {
+				fnName = f.Name
+			} else {
+				fnName = "<lambda>"
+			}
+		case *object.Builtin:
+			fnName = "<builtin>"
+		default:
+			fnName = string(function.Type())
+		}
+		i.pushFrame(fnName, node.Token.File, node.Token.Line, node.Token.Column)
+		res := i.applyFunction(function, args)
+		// Attach stack trace if exception and none set yet
+		if exSig, ok := res.(*object.ExceptionSignal); ok && exSig.Exception != nil {
+			if exSig.Exception.StackTrace == nil {
+				exSig.Exception.StackTrace = i.currentStackTrace()
+			}
+		}
+		i.popFrame()
+		return res
 
 	case *ast.ArrayLiteral:
 		elems := i.evalExpressions(node.Elements, env)
@@ -1041,6 +1068,24 @@ func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object
 		return cached
 	}
 
+	// Native module: import "go:<name>"
+	if strings.HasPrefix(path, "go:") {
+		name := strings.TrimPrefix(path, "go:")
+		if mod, ok := native.Get(name); ok {
+			modEnv := object.NewEnclosedEnvironment(env)
+			// export functions into both module env and current env (no namespace operator yet)
+			for fname, fn := range mod.Functions {
+				modEnv.Set(fname, fn)
+				env.Set(fname, fn)
+			}
+			module := &object.Module{Env: modEnv, Path: path}
+			i.loadedModules[path] = module
+			return module
+		}
+		return object.NewError("import: native module %q not found", name)
+	}
+
+	// File-based module fallback
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return object.NewError("import: cannot read module %q: %s", path, err)
@@ -1600,11 +1645,40 @@ func (i *Interpreter) evalThrowStatement(node *ast.ThrowStatement, env *object.E
 
 // matchesExceptionType checks if an exception matches a catch clause
 func (i *Interpreter) matchesExceptionType(exception *object.Exception, catchClause *ast.CatchClause) bool {
-	// If no exception type specified, catch all exceptions
-	if catchClause.ExceptionType == nil {
-		return true
-	}
+    // If no exception type specified, catch all exceptions
+    if catchClause.ExceptionType == nil {
+        return true
+    }
 
-	// Check if exception type matches
-	return exception.ExceptionType == catchClause.ExceptionType.Value
+    // Check if exception type matches
+    return exception.ExceptionType == catchClause.ExceptionType.Value
+}
+
+// ===== Python-like Traceback Helpers =====
+// pushFrame records a call-site frame for better tracebacks
+func (i *Interpreter) pushFrame(functionName, file string, line, column int) {
+    i.callStack = append(i.callStack, &object.StackFrame{
+        Function: functionName,
+        File:     file,
+        Line:     line,
+        Column:   column,
+    })
+}
+
+// popFrame removes the latest frame
+func (i *Interpreter) popFrame() {
+    if len(i.callStack) == 0 {
+        return
+    }
+    i.callStack = i.callStack[:len(i.callStack)-1]
+}
+
+// currentStackTrace returns a copy of current frames as a StackTrace object
+func (i *Interpreter) currentStackTrace() *object.StackTrace {
+    if len(i.callStack) == 0 {
+        return &object.StackTrace{Frames: nil}
+    }
+    frames := make([]*object.StackFrame, len(i.callStack))
+    copy(frames, i.callStack)
+    return &object.StackTrace{Frames: frames}
 }

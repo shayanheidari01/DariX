@@ -4,6 +4,8 @@ import (
 	"darix/ast"
 	"darix/code"
 	"darix/object"
+	"darix/internal/version"
+	"darix/token"
 	"fmt"
 )
 
@@ -11,6 +13,7 @@ type Compiler struct {
 	instructions code.Instructions
 	constants    []object.Object
 	symbolTable  *SymbolTable
+	debugEntries []DebugEntry
 }
 
 func New() *Compiler {
@@ -18,17 +21,30 @@ func New() *Compiler {
 		instructions: code.Instructions{},
 		constants:    []object.Object{},
 		symbolTable:  NewSymbolTable(),
+		debugEntries: make([]DebugEntry, 0, 64),
 	}
 }
 
 func (c *Compiler) Bytecode() *Bytecode {
-	return &Bytecode{Instructions: c.instructions, Constants: c.constants}
+	// run simple peephole optimization before packaging
+	c.instructions = peephole(c.instructions)
+	return &Bytecode{Magic: BytecodeMagic, Version: version.Version, Instructions: c.instructions, Constants: c.constants, Debug: DebugInfo{Entries: c.debugEntries}}
 }
 
 func (c *Compiler) emit(op code.Opcode, operands ...int) int {
 	ins := code.Make(op, operands...)
 	pos := len(c.instructions)
 	c.instructions = append(c.instructions, ins...)
+	return pos
+}
+
+// emitAt emits an instruction and records a debug entry for the given AST node
+func (c *Compiler) emitAt(n ast.Node, op code.Opcode, operands ...int) int {
+	pos := c.emit(op, operands...)
+	// record debug info if available
+	if file, line, col, fn := tokenInfoFromNode(n); file != "" || line > 0 || col > 0 {
+		c.debugEntries = append(c.debugEntries, DebugEntry{PC: pos, File: file, Line: line, Column: col, Function: fn})
+	}
 	return pos
 }
 
@@ -269,29 +285,29 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if err := c.Compile(n.Expression); err != nil {
 			return err
 		}
-		c.emit(code.OpPop)
+		c.emitAt(n, code.OpPop)
 	case *ast.IntegerLiteral:
 		idx := c.addConstant(object.NewInteger(n.Value))
-		c.emit(code.OpConstant, idx)
+		c.emitAt(n, code.OpConstant, idx)
 	case *ast.FloatLiteral:
 		idx := c.addConstant(object.NewFloat(n.Value))
-		c.emit(code.OpConstant, idx)
+		c.emitAt(n, code.OpConstant, idx)
 	case *ast.StringLiteral:
 		idx := c.addConstant(object.NewString(n.Value))
-		c.emit(code.OpConstant, idx)
+		c.emitAt(n, code.OpConstant, idx)
 	case *ast.Boolean:
 		if n.Value {
-			c.emit(code.OpTrue)
+			c.emitAt(n, code.OpTrue)
 		} else {
-			c.emit(code.OpFalse)
+			c.emitAt(n, code.OpFalse)
 		}
 	case *ast.Null:
-		c.emit(code.OpNull)
+		c.emitAt(n, code.OpNull)
 	case *ast.PrefixExpression:
 		// Constant folding
 		if obj, ok := foldConstExpr(n); ok {
 			idx := c.addConstant(obj)
-			c.emit(code.OpConstant, idx)
+			c.emitAt(n, code.OpConstant, idx)
 			return nil
 		}
 		if err := c.Compile(n.Right); err != nil {
@@ -299,9 +315,9 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		switch n.Operator {
 		case "-":
-			c.emit(code.OpMinus)
+			c.emitAt(n, code.OpMinus)
 		case "!":
-			c.emit(code.OpBang)
+			c.emitAt(n, code.OpBang)
 		default:
 			return fmt.Errorf("unsupported prefix operator %s", n.Operator)
 		}
@@ -309,7 +325,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// Constant folding for literals
 		if obj, ok := foldConstExpr(n); ok {
 			idx := c.addConstant(obj)
-			c.emit(code.OpConstant, idx)
+			c.emitAt(n, code.OpConstant, idx)
 			return nil
 		}
 		// Handle < by reversing operands and using >
@@ -320,7 +336,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 			if err := c.Compile(n.Left); err != nil {
 				return err
 			}
-			c.emit(code.OpGreaterThan)
+			c.emitAt(n, code.OpGreaterThan)
 			return nil
 		}
 		if err := c.Compile(n.Left); err != nil {
@@ -331,19 +347,19 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		switch n.Operator {
 		case "+":
-			c.emit(code.OpAdd)
+			c.emitAt(n, code.OpAdd)
 		case "-":
-			c.emit(code.OpSub)
+			c.emitAt(n, code.OpSub)
 		case "*":
-			c.emit(code.OpMul)
+			c.emitAt(n, code.OpMul)
 		case "/":
-			c.emit(code.OpDiv)
+			c.emitAt(n, code.OpDiv)
 		case "==":
-			c.emit(code.OpEqual)
+			c.emitAt(n, code.OpEqual)
 		case "!=":
-			c.emit(code.OpNotEqual)
+			c.emitAt(n, code.OpNotEqual)
 		case ">":
-			c.emit(code.OpGreaterThan)
+			c.emitAt(n, code.OpGreaterThan)
 		default:
 			return fmt.Errorf("unsupported infix operator %s", n.Operator)
 		}
@@ -352,13 +368,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 		sym := c.symbolTable.Define(n.Name.Value)
-		c.emit(code.OpSetGlobal, sym.Index)
+		c.emitAt(n, code.OpSetGlobal, sym.Index)
 	case *ast.Identifier:
 		sym, ok := c.symbolTable.Resolve(n.Value)
 		if !ok {
 			return fmt.Errorf("undefined variable %s", n.Value)
 		}
-		c.emit(code.OpGetGlobal, sym.Index)
+		c.emitAt(n, code.OpGetGlobal, sym.Index)
 	case *ast.AssignStatement:
 		// Only identifier targets are supported for now
 		ident, ok := n.Target.(*ast.Identifier)
@@ -373,20 +389,20 @@ func (c *Compiler) Compile(node ast.Node) error {
 			// Implicit define if not defined yet
 			sym = c.symbolTable.Define(ident.Value)
 		}
-		c.emit(code.OpSetGlobal, sym.Index)
+		c.emitAt(n, code.OpSetGlobal, sym.Index)
 	case *ast.IfExpression:
 		// condition
 		if err := c.Compile(n.Condition); err != nil {
 			return err
 		}
 		// jump if not truthy to else (or end)
-		jntPos := c.emit(code.OpJumpNotTruthy, 9999)
+		jntPos := c.emitAt(n, code.OpJumpNotTruthy, 9999)
 		// consequence
 		if err := c.Compile(n.Consequence); err != nil {
 			return err
 		}
 		// jump to end
-		jmpPos := c.emit(code.OpJump, 9999)
+		jmpPos := c.emitAt(n, code.OpJump, 9999)
 		// patch jntPos to here
 		c.replaceOperand(jntPos, len(c.instructions))
 		// alternative
@@ -405,7 +421,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 		// jump out if not truthy
-		jntPos := c.emit(code.OpJumpNotTruthy, 9999)
+		jntPos := c.emitAt(n, code.OpJumpNotTruthy, 9999)
 		// body
 		if n.Body != nil {
 			if err := c.Compile(n.Body); err != nil {
@@ -413,7 +429,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 			}
 		}
 		// jump back to condition
-		c.emit(code.OpJump, condPos)
+		c.emitAt(n, code.OpJump, condPos)
 		// patch exit to here
 		c.replaceOperand(jntPos, len(c.instructions))
 		return nil
@@ -426,7 +442,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 					return err
 				}
 			}
-			c.emit(code.OpPrint, argc)
+			c.emitAt(n, code.OpPrint, argc)
 			return nil
 		}
 		return ErrUnsupportedFeature
@@ -450,4 +466,128 @@ func (c *Compiler) replaceInstruction(pos int, newIns []byte) {
 	for i := 0; i < len(newIns); i++ {
 		c.instructions[pos+i] = newIns[i]
 	}
+}
+
+// tokenInfoFromNode extracts file/line/column/function name from an AST node
+func tokenInfoFromNode(n ast.Node) (string, int, int, string) {
+	var t token.Token
+	switch node := n.(type) {
+	case *ast.Program:
+		return "", 0, 0, "<module>"
+	case *ast.ExpressionStatement:
+		t = node.Token
+	case *ast.LetStatement:
+		t = node.Token
+	case *ast.AssignStatement:
+		t = node.Token
+	case *ast.ReturnStatement:
+		t = node.Token
+	case *ast.BlockStatement:
+		t = node.Token
+	case *ast.StandaloneBlockStatement:
+		t = node.Token
+	case *ast.WhileStatement:
+		t = node.Token
+	case *ast.ForStatement:
+		t = node.Token
+	case *ast.FunctionDeclaration:
+		t = node.Token
+		if node.Name != nil {
+			return t.File, t.Line, t.Column, node.Name.Value
+		}
+		return t.File, t.Line, t.Column, "<func>"
+	case *ast.Identifier:
+		t = node.Token
+	case *ast.IntegerLiteral:
+		t = node.Token
+	case *ast.FloatLiteral:
+		t = node.Token
+	case *ast.StringLiteral:
+		t = node.Token
+	case *ast.Boolean:
+		t = node.Token
+	case *ast.Null:
+		t = node.Token
+	case *ast.PrefixExpression:
+		t = node.Token
+	case *ast.InfixExpression:
+		t = node.Token
+	case *ast.IfExpression:
+		t = node.Token
+	case *ast.FunctionLiteral:
+		t = node.Token
+		return t.File, t.Line, t.Column, "<lambda>"
+	case *ast.CallExpression:
+		t = node.Token
+	case *ast.ArrayLiteral:
+		t = node.Token
+	case *ast.MapLiteral:
+		t = node.Token
+	case *ast.IndexExpression:
+		t = node.Token
+	default:
+		return "", 0, 0, ""
+	}
+	return t.File, t.Line, t.Column, "<module>"
+}
+
+// peephole performs small, local optimizations while preserving instruction stream length
+// Important: It never changes the total length of bytecode to keep absolute jump targets valid
+func peephole(ins code.Instructions) code.Instructions {
+	if len(ins) == 0 {
+		return ins
+	}
+	out := make(code.Instructions, len(ins))
+	copy(out, ins)
+	for i := 0; i < len(out); {
+		op := code.Opcode(out[i])
+		switch op {
+		case code.OpJump:
+			def, _ := code.Lookup(code.OpJump)
+			operands, _ := code.ReadOperands(def, out[i+1:])
+			target := operands[0]
+			// OpJump is 3 bytes; if it jumps to the very next instruction, it's a no-op
+			if target == i+3 {
+				out[i] = byte(code.OpNop)
+				out[i+1] = byte(code.OpNop)
+				out[i+2] = byte(code.OpNop)
+			}
+			i += 3
+		case code.OpJumpNotTruthy:
+			def, _ := code.Lookup(code.OpJumpNotTruthy)
+			operands, _ := code.ReadOperands(def, out[i+1:])
+			target := operands[0]
+			// Replace with Pop when target is next instruction to preserve stack balance
+			if target == i+3 {
+				out[i] = byte(code.OpPop)
+				out[i+1] = byte(code.OpNop)
+				out[i+2] = byte(code.OpNop)
+			}
+			i += 3
+		case code.OpConstant:
+			// Pattern: Constant x; Pop -> remove both
+			if i+3 < len(out) && code.Opcode(out[i+3]) == code.OpPop {
+				out[i] = byte(code.OpNop)
+				out[i+1] = byte(code.OpNop)
+				out[i+2] = byte(code.OpNop)
+				out[i+3] = byte(code.OpNop)
+				i += 4
+				continue
+			}
+			i += 3
+		default:
+			def, ok := code.Lookup(op)
+			if !ok {
+				// Unknown byte, advance one to avoid infinite loop
+				i += 1
+				continue
+			}
+			// advance by opcode byte + operand widths
+			i += 1
+			for _, w := range def.OperandWidths {
+				i += w
+			}
+		}
+	}
+	return out
 }

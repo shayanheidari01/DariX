@@ -19,6 +19,9 @@ type VM struct {
 
 	ip           int
 	instructions code.Instructions
+	bcMagic      string
+	bcVersion    string
+	debug        compiler.DebugInfo
 }
 
 const (
@@ -33,13 +36,16 @@ func New(bc *compiler.Bytecode) *VM {
 		stack:        make([]object.Object, StackSize),
 		instructions: bc.Instructions,
 		ip:           0,
+		bcMagic:      bc.Magic,
+		bcVersion:    bc.Version,
+		debug:        bc.Debug,
 	}
 	return vm
 }
 
 func (vm *VM) push(o object.Object) object.Object {
 	if vm.sp >= StackSize {
-		return object.NewError("stack overflow")
+		return vm.errorWithLoc("stack overflow")
 	}
 	vm.stack[vm.sp] = o
 	vm.sp++
@@ -48,7 +54,7 @@ func (vm *VM) push(o object.Object) object.Object {
 
 func (vm *VM) pop() object.Object {
 	if vm.sp == 0 {
-		return object.NewError("stack underflow")
+		return vm.errorWithLoc("stack underflow")
 	}
 	vm.sp--
 	obj := vm.stack[vm.sp]
@@ -57,9 +63,15 @@ func (vm *VM) pop() object.Object {
 }
 
 func (vm *VM) Run() object.Object {
+	// Optional: validate bytecode header (non-fatal in dev builds)
+	if vm.bcMagic != "" && vm.bcMagic != compiler.BytecodeMagic {
+		return object.NewError("invalid bytecode: magic mismatch")
+	}
 	for vm.ip = 0; vm.ip < len(vm.instructions); vm.ip++ {
 		op := code.Opcode(vm.instructions[vm.ip])
 		switch op {
+		case code.OpNop:
+			// do nothing
 		case code.OpConstant:
 			operand := readUint16(vm.instructions[vm.ip+1:])
 			vm.ip += 2
@@ -123,7 +135,7 @@ func (vm *VM) Run() object.Object {
 			argc := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
 			if argc < 0 || vm.sp < argc {
-				return object.NewError("print: invalid argc or stack underflow")
+				return vm.errorWithLoc("print: invalid argc or stack underflow")
 			}
 			start := vm.sp - argc
 			var b strings.Builder
@@ -138,7 +150,7 @@ func (vm *VM) Run() object.Object {
 			// faster stdout write than fmt.Println
 			_, _ = io.WriteString(os.Stdout, out)
 			_, _ = io.WriteString(os.Stdout, "\n")
-			if err := vm.push(object.NewString(out)); err != nil { return err }
+			if err := vm.push(object.NULL); err != nil { return err }
 		case code.OpJump:
 			pos := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip = pos - 1
@@ -150,7 +162,7 @@ func (vm *VM) Run() object.Object {
 				vm.ip = pos - 1
 			}
 		default:
-			return object.NewError("unknown opcode %d", op)
+			return vm.errorWithLoc("unknown opcode %d", op)
 		}
 	}
 	return object.NULL
@@ -189,6 +201,7 @@ func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Objec
 		case code.OpDiv:
 			if r.Value == 0 {
 				ex := object.NewException(object.ZERO_DIV_ERROR, "division by zero")
+				ex.StackTrace = vm.buildStackTrace()
 				return object.NewExceptionSignal(ex)
 			}
 			return object.NewInteger(l.Value / r.Value)
@@ -205,6 +218,7 @@ func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Objec
 		case code.OpDiv:
 			if r.Value == 0 {
 				ex := object.NewException(object.ZERO_DIV_ERROR, "division by zero")
+				ex.StackTrace = vm.buildStackTrace()
 				return object.NewExceptionSignal(ex)
 			}
 			return object.NewFloat(l.Value / r.Value)
@@ -217,7 +231,7 @@ func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Objec
 			}
 		}
 	}
-	return object.NewError("unsupported operands for binary op: %s and %s", left.Type(), right.Type())
+	return vm.errorWithLoc("unsupported operands for binary op: %s and %s", left.Type(), right.Type())
 }
 
 func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Object {
@@ -261,7 +275,7 @@ func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Obje
 			return nativeBoolToBooleanObject(l.Value != r.Value)
 		}
 	}
-	return object.NewError("unsupported operands for compare: %s and %s", left.Type(), right.Type())
+	return vm.errorWithLoc("unsupported operands for compare: %s and %s", left.Type(), right.Type())
 }
 
 func (vm *VM) execMinus(operand object.Object) object.Object {
@@ -271,7 +285,7 @@ func (vm *VM) execMinus(operand object.Object) object.Object {
 	case *object.Float:
 		return object.NewFloat(-o.Value)
 	default:
-		return object.NewError("unsupported operand for prefix -: %s", operand.Type())
+		return vm.errorWithLoc("unsupported operand for prefix -: %s", operand.Type())
 	}
 }
 
@@ -319,4 +333,54 @@ func (vm *VM) DebugStack() string {
 		out = append(out, fmt.Sprintf("%s", vm.stack[i].Inspect()))
 	}
 	return strings.Join(out, ", ")
+}
+
+// errorWithLoc creates an error with file:line:col prefix when debug info is available
+func (vm *VM) errorWithLoc(format string, args ...any) *object.Error {
+	msg := fmt.Sprintf(format, args...)
+	file, line, col, _ := vm.lookupDebug(vm.ip)
+	if file != "" || line > 0 || col > 0 {
+		msg = fmt.Sprintf("%s:%d:%d: %s", file, line, col, msg)
+	}
+	return object.NewError("%s", msg)
+}
+
+// buildStackTrace captures a simple one-frame stack trace using current IP
+func (vm *VM) buildStackTrace() *object.StackTrace {
+	f := vm.currentFrame()
+	if f == nil {
+		return &object.StackTrace{Frames: nil}
+	}
+	return &object.StackTrace{Frames: []*object.StackFrame{f}}
+}
+
+func (vm *VM) currentFrame() *object.StackFrame {
+	file, line, col, fn := vm.lookupDebug(vm.ip)
+	if file == "" && line == 0 && col == 0 {
+		return nil
+	}
+	return &object.StackFrame{Function: fn, File: file, Line: line, Column: col}
+}
+
+// lookupDebug finds the closest debug entry at or before ip
+func (vm *VM) lookupDebug(ip int) (string, int, int, string) {
+	// entries are expected in ascending PC order
+	bestIdx := -1
+	bestPC := -1
+	for i := 0; i < len(vm.debug.Entries); i++ {
+		pc := vm.debug.Entries[i].PC
+		if pc <= ip && pc >= bestPC {
+			bestPC = pc
+			bestIdx = i
+		}
+	}
+	if bestIdx == -1 {
+		return "", 0, 0, ""
+	}
+	e := vm.debug.Entries[bestIdx]
+	fn := e.Function
+	if fn == "" {
+		fn = "<module>"
+	}
+	return e.File, e.Line, e.Column, fn
 }

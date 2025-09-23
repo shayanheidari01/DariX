@@ -1,0 +1,92 @@
+name: Release DariX
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: windows
+            arch: amd64
+          - os: darwin
+            arch: amd64
+          - os: android
+            arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o darix-${{ matrix.os }}-${{ matrix.arch }} main.go
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            mv darix-${{ matrix.os }}-${{ matrix.arch }} darix-${{ matrix.os }}-${{ matrix.arch }}.exe
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: darix-${{ matrix.os }}-${{ matrix.arch }}
+          path: darix-${{ matrix.os }}-${{ matrix.arch }}*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: auto-${{ github.sha }}
+          name: DariX ${{ steps.version.outputs.version }} Auto Release ${{ github.sha }}
+          body: |
+            Automatic release of DariX version ${{ steps.version.outputs.version }}
+
+            Built from commit ${{ github.sha }}
+
+            Binaries attached.
+          files: ./artifacts/**/*
+
+      - name: Bump version
+        run: |
+          NEW_VERSION=$(echo ${{ steps.version.outputs.version }} | awk -F. '{print $1"."$2"."($3+1)}')
+          sed -i "s/const Version = \"${{ steps.version.outputs.version }}\"/const Version = \"$NEW_VERSION\"/" internal/version/version.go
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add internal/version/version.go
+          git commit -m "Bump version to $NEW_VERSION [skip ci]"
+          git push

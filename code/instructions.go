@@ -36,6 +36,7 @@ const (
 	OpSetGlobal
 	OpGetGlobal
 	OpPrint
+	OpNop
 )
 
 var definitions = map[Opcode]*Definition{
@@ -58,6 +59,7 @@ var definitions = map[Opcode]*Definition{
 	OpSetGlobal:      {Name: "OpSetGlobal", OperandWidths: []int{2}},
 	OpGetGlobal:      {Name: "OpGetGlobal", OperandWidths: []int{2}},
 	OpPrint:          {Name: "OpPrint", OperandWidths: []int{2}},
+	OpNop:            {Name: "OpNop", OperandWidths: []int{}},
 }
 
 func Lookup(op Opcode) (*Definition, bool) {
