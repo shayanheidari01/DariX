@@ -4,10 +4,13 @@ package main
 
 import (
 	"bufio"
+	"darix/compiler"
 	"darix/interpreter"
 	"darix/lexer"
 	"darix/object"
 	"darix/parser"
+	"darix/internal/version"
+	"darix/vm"
 	"fmt"
 	"os"
 	"strings"
@@ -15,9 +18,87 @@ import (
 
 func main() {
 	if len(os.Args) > 1 {
-		runFile(os.Args[1])
-	} else {
-		startRepl()
+		cmd := os.Args[1]
+		switch cmd {
+		case "run":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: darix run <file.dax>")
+				os.Exit(1)
+			}
+			runFile(os.Args[2])
+			return
+		case "repl":
+			startRepl()
+			return
+		case "eval":
+			if len(os.Args) < 3 {
+				fmt.Println("Usage: darix eval \"<code>\"")
+				os.Exit(1)
+			}
+			runCode(os.Args[2])
+			return
+		case "version", "-v", "--version":
+			fmt.Println(version.String())
+			return
+		case "help", "-h", "--help":
+			printHelp()
+			return
+		default:
+			// If it's a file path, run it; otherwise show help
+			if _, err := os.Stat(cmd); err == nil {
+				runFile(cmd)
+				return
+			}
+			fmt.Printf("Unknown command or file: %s\n\n", cmd)
+			printHelp()
+			os.Exit(1)
+		}
+	}
+	startRepl()
+}
+
+func runCode(code string) {
+	l := lexer.NewWithFile(code, "<eval>")
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		for _, msg := range p.Errors() {
+			fmt.Printf("Parse error: %s\n", msg)
+		}
+		os.Exit(1)
+	}
+
+	// Try compiling to bytecode and running on VM first
+	comp := compiler.New()
+	if err := comp.Compile(program); err == nil {
+		bc := comp.Bytecode()
+		machine := vm.New(bc)
+		result := machine.Run()
+		if result != nil {
+			switch result.Type() {
+			case object.ERROR_OBJ:
+				fmt.Printf("Runtime error: %s\n", result.Inspect())
+				os.Exit(1)
+			case object.ObjectType(object.EXCEPTION_SIGNAL):
+				fmt.Printf("Unhandled exception: %s\n", result.Inspect())
+				os.Exit(1)
+			}
+		}
+		return
+	}
+	// Fallback to interpreter
+	inter := interpreter.New()
+	result := inter.Interpret(program)
+	if result != nil {
+		switch result.Type() {
+		case object.ERROR_OBJ:
+			fmt.Printf("Runtime error: %s\n", result.Inspect())
+			os.Exit(1)
+		case object.ObjectType(object.EXCEPTION_SIGNAL):
+			fmt.Printf("Unhandled exception: %s\n", result.Inspect())
+			os.Exit(1)
+		}
 	}
 }
 
@@ -28,7 +109,7 @@ func runFile(filename string) {
 		os.Exit(1)
 	}
 
-	l := lexer.New(string(content))
+	l := lexer.NewWithFile(string(content), filename)
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -41,9 +122,15 @@ func runFile(filename string) {
 
 	inter := interpreter.New()
 	result := inter.Interpret(program)
-	if result != nil && result.Type() == object.ERROR_OBJ {
-		fmt.Printf("Runtime error: %s\n", result.Inspect())
-		os.Exit(1)
+	if result != nil {
+		switch result.Type() {
+		case object.ERROR_OBJ:
+			fmt.Printf("Runtime error: %s\n", result.Inspect())
+			os.Exit(1)
+		case object.ObjectType(object.EXCEPTION_SIGNAL):
+			fmt.Printf("Unhandled exception: %s\n", result.Inspect())
+			os.Exit(1)
+		}
 	}
 }
 
@@ -101,8 +188,8 @@ func startRepl() {
 		braceCount = 0
 		bracketCount = 0
 
-		// لکس و پارس کردن ورودی کامل
-		l := lexer.New(input)
+		// لکس و پارس کردن ورودی
+		l := lexer.NewWithFile(input, "<repl>")
 		p := parser.New(l)
 		p.SetReplMode(true) // فعال کردن حالت REPL
 		program := p.ParseProgram()
@@ -134,4 +221,15 @@ func startRepl() {
 		// اطمینان از پاک شدن بافر خروجی
 		os.Stdout.Sync()
 	}
+}
+
+func printHelp() {
+    fmt.Println("DariX command line")
+    fmt.Println()
+    fmt.Println("Usage:")
+    fmt.Println("  darix run <file.dax>    Run a DariX script file (.dax)")
+    fmt.Println("  darix repl              Start interactive REPL")
+    fmt.Println("  darix eval \"<code>\"    Evaluate a code snippet")
+    fmt.Println("  darix version           Show version info")
+    fmt.Println("  darix help              Show this help")
 }

@@ -8,6 +8,7 @@ import (
 	"darix/object"
 	"darix/parser"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -16,9 +17,9 @@ import (
 )
 
 var (
-	NULL  = &object.Null{}
-	TRUE  = &object.Boolean{Value: true}
-	FALSE = &object.Boolean{Value: false}
+	NULL  = object.NULL
+	TRUE  = object.TRUE
+	FALSE = object.FALSE
 )
 
 type Interpreter struct {
@@ -428,25 +429,33 @@ func (i *Interpreter) initBuiltins() {
 					return object.NewError("pow: both arguments must be numbers")
 				}
 
-				// Handle integer exponentiation for better precision
-				if expInt, ok := exp.(*object.Integer); ok && expInt.Value >= 0 {
-					if baseInt, ok := base.(*object.Integer); ok {
-						result := int64(1)
-						for i := int64(0); i < expInt.Value; i++ {
-							result *= baseInt.Value
+				// If exponent is integer
+				if expInt, ok := exp.(*object.Integer); ok {
+					// Base is integer and exponent non-negative: integer fast power
+					if baseInt, ok2 := base.(*object.Integer); ok2 && expInt.Value >= 0 {
+						// Exponentiation by squaring
+						var res int64 = 1
+						b := baseInt.Value
+						e := expInt.Value
+						for e > 0 {
+							if (e & 1) == 1 {
+								res *= b
+							}
+							b *= b
+							e >>= 1
 						}
-						return object.NewInteger(result)
+						return object.NewInteger(res)
 					}
+					// For negative integer exponent or float base, return float result
+					bf := toFloat(base)
+					rf := math.Pow(bf, float64(expInt.Value))
+					return object.NewFloat(rf)
 				}
 
-				// Fallback to float
-				baseFloat := toFloat(base)
-				expFloat := toFloat(exp)
-				result := 1.0
-				for i := 0.0; i < expFloat; i++ {
-					result *= baseFloat
-				}
-				return object.NewFloat(result)
+				// General float exponent case
+				bf := toFloat(base)
+				ef := toFloat(exp)
+				return object.NewFloat(math.Pow(bf, ef))
 			},
 		},
 		"clamp": {
@@ -682,20 +691,7 @@ func compareObjects(a, b object.Object) int {
 }
 
 func (i *Interpreter) Interpret(program *ast.Program) object.Object {
-	var result object.Object = NULL
-
-	for _, statement := range program.Statements {
-		result = i.eval(statement, i.env)
-
-		switch result := result.(type) {
-		case *object.ReturnValue:
-			return result.Value
-		case *object.Error:
-			return result
-		}
-	}
-
-	return result
+    return i.evalProgram(program, i.env)
 }
 
 func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object {
@@ -886,7 +882,7 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 		return i.evalThrowStatement(node, env)
 
 	default:
-		return newError("unknown node type: %T", node)
+		return object.NewError("unknown node type: %T", node)
 	}
 }
 
@@ -954,7 +950,7 @@ func (i *Interpreter) evalAssignStatement(node *ast.AssignStatement, env *object
 	case *ast.IndexExpression:
 		return i.evalIndexAssignment(target, val, env)
 	default:
-		return newError("invalid assignment target: expected identifier or index expression, got %T", target)
+		return object.NewError("invalid assignment target: expected identifier or index expression, got %T", target)
 	}
 
 	return val
@@ -982,13 +978,13 @@ func (i *Interpreter) evalIndexAssignment(indexExpr *ast.IndexExpression, val ob
 			exception := object.NewException(object.INDEX_ERROR, fmt.Sprintf("array index out of range: %d", idx.Value))
 			return object.NewExceptionSignal(exception)
 		}
-		container.Elements[idx.Value] = val
+		container.Elements[int(idx.Value)] = val
 		return NULL
 
 	case *object.Hash:
 		hashKey, ok := index.(object.Hashable)
 		if !ok {
-			return newError("unusable as hash key: %s", index.Type())
+			return object.NewError("unusable as hash key: %s", index.Type())
 		}
 		container.Pairs[hashKey.HashKey()] = object.HashPair{Key: index, Value: val}
 		return NULL
@@ -1012,7 +1008,7 @@ func (i *Interpreter) evalIndexAssignment(indexExpr *ast.IndexExpression, val ob
 		return NULL
 
 	default:
-		return newError("index assignment not supported on %s", left.Type())
+		return object.NewError("index assignment not supported on %s", left.Type())
 	}
 }
 
@@ -1047,15 +1043,15 @@ func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return newError("import: cannot read module %q: %s", path, err)
+		return object.NewError("import: cannot read module %q: %s", path, err)
 	}
 
-	l := lexer.New(string(content))
+	l := lexer.NewWithFile(string(content), path)
 	p := parser.New(l)
 	program := p.ParseProgram()
 
 	if errors := p.Errors(); len(errors) > 0 {
-		return newError("import: parse errors in module %s: %s", path, strings.Join(errors, ", "))
+		return object.NewError("import: parse errors in module %s: %s", path, strings.Join(errors, ", "))
 	}
 
 	moduleEnv := object.NewEnclosedEnvironment(env)
@@ -1065,7 +1061,7 @@ func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object
 
 	result := modInter.Interpret(program)
 	if isError(result) {
-		return newError("import: runtime error in %q: %s", path, result.(*object.Error).Message)
+		return object.NewError("import: runtime error in %q: %s", path, result.(*object.Error).Message)
 	}
 
 	module := &object.Module{Env: moduleEnv, Path: path}
@@ -1087,7 +1083,7 @@ func (i *Interpreter) evalPrefixExpression(operator string, right object.Object)
 	case "-":
 		return i.evalMinusPrefix(right)
 	default:
-		return newError("unknown operator: %s%s", operator, right.Type())
+		return object.NewError("unknown operator: %s%s", operator, right.Type())
 	}
 }
 
@@ -1105,7 +1101,7 @@ func (i *Interpreter) evalMinusPrefix(right object.Object) object.Object {
 	case *object.Float:
 		return object.NewFloat(-obj.Value)
 	default:
-		return newError("unknown operator: -%s", right.Type())
+		return object.NewError("unknown operator: -%s", right.Type())
 	}
 }
 
@@ -1118,7 +1114,7 @@ func (i *Interpreter) evalInfixExpression(op string, left, right object.Object) 
 		case "!=":
 			return nativeBoolToBooleanObject(left.Type() != right.Type())
 		default:
-			return newError("null can only be compared with == or !=")
+			return object.NewError("null can only be compared with == or !=")
 		}
 	}
 
@@ -1147,7 +1143,7 @@ func (i *Interpreter) evalInfixExpression(op string, left, right object.Object) 
 		}
 	}
 
-	return newError("unknown operator: %s %s %s", left.Type(), op, right.Type())
+	return object.NewError("unknown operator: %s %s %s", left.Type(), op, right.Type())
 }
 
 func evalIntegerInfix(op string, lv, rv int64) object.Object {
@@ -1185,7 +1181,7 @@ func evalIntegerInfix(op string, lv, rv int64) object.Object {
 	case "!=":
 		return nativeBoolToBooleanObject(lv != rv)
 	default:
-		return newError("unknown integer operator: %s", op)
+		return object.NewError("unknown integer operator: %s", op)
 	}
 }
 
@@ -1217,7 +1213,7 @@ func evalFloatInfix(op string, lv, rv float64) object.Object {
 	case "!=":
 		return nativeBoolToBooleanObject(lv != rv)
 	default:
-		return newError("unknown float operator: %s", op)
+		return object.NewError("unknown float operator: %s", op)
 	}
 }
 
@@ -1238,7 +1234,7 @@ func evalStringInfix(op string, lv, rv string) object.Object {
 	case ">=":
 		return nativeBoolToBooleanObject(lv >= rv)
 	default:
-		return newError("unknown string operator: %s", op)
+		return object.NewError("unknown string operator: %s", op)
 	}
 }
 
@@ -1249,7 +1245,7 @@ func evalBooleanInfix(op string, lv, rv bool) object.Object {
 	case "!=":
 		return nativeBoolToBooleanObject(lv != rv)
 	default:
-		return newError("unknown boolean operator: %s", op)
+		return object.NewError("unknown boolean operator: %s", op)
 	}
 }
 
@@ -1275,7 +1271,7 @@ func (i *Interpreter) evalIdentifier(node *ast.Identifier, env *object.Environme
 	if builtin, ok := i.builtins[node.Value]; ok {
 		return builtin
 	}
-	return newError("identifier not found: " + node.Value)
+	return object.NewError("identifier not found: " + node.Value)
 }
 
 func (i *Interpreter) evalExpressions(exps []ast.Expression, env *object.Environment) []object.Object {
@@ -1296,7 +1292,7 @@ func (i *Interpreter) applyFunction(fn object.Object, args []object.Object) obje
 	switch fn := fn.(type) {
 	case *object.Function:
 		if len(args) != len(fn.Parameters) {
-			return newError("wrong number of arguments: expected %d, got %d", len(fn.Parameters), len(args))
+			return object.NewError("wrong number of arguments: expected %d, got %d", len(fn.Parameters), len(args))
 		}
 
 		extendedEnv := object.NewEnclosedEnvironment(fn.Env)
@@ -1311,7 +1307,7 @@ func (i *Interpreter) applyFunction(fn object.Object, args []object.Object) obje
 		return fn.Fn(args...)
 
 	default:
-		return newError("not a function: %s", fn.Type())
+		return object.NewError("not a function: %s", fn.Type())
 	}
 }
 
@@ -1333,15 +1329,15 @@ func (i *Interpreter) evalIndexExpression(left, index object.Object) object.Obje
 	case left.Type() == object.STRING_OBJ && index.Type() == object.INTEGER_OBJ:
 		return i.evalStringIndex(left, index)
 	default:
-		return newError("index operator not supported: %s[%s]", left.Type(), index.Type())
+		return object.NewError("index operator not supported: %s[%s]", left.Type(), index.Type())
 	}
 }
 
 func (i *Interpreter) evalArrayIndex(array, index object.Object) object.Object {
 	arrayObject := array.(*object.Array)
-	idx := index.(*object.Integer).Value
+	idx := int(index.(*object.Integer).Value)
 
-	if idx < 0 || int(idx) >= len(arrayObject.Elements) {
+	if idx < 0 || idx >= len(arrayObject.Elements) {
 		// Create and throw IndexError
 		exception := object.NewException(object.INDEX_ERROR, fmt.Sprintf("array index out of range: %d", idx))
 		return object.NewExceptionSignal(exception)
@@ -1364,7 +1360,7 @@ func (i *Interpreter) evalHashIndex(hashObj, key object.Object) object.Object {
 	hashObject := hashObj.(*object.Hash)
 	hashKey, ok := key.(object.Hashable)
 	if !ok {
-		return newError("unusable as hash key: %s", key.Type())
+		return object.NewError("unusable as hash key: %s", key.Type())
 	}
 
 	if pair, ok := hashObject.Pairs[hashKey.HashKey()]; ok {
@@ -1375,9 +1371,9 @@ func (i *Interpreter) evalHashIndex(hashObj, key object.Object) object.Object {
 
 func (i *Interpreter) evalStringIndex(str, index object.Object) object.Object {
 	stringObject := str.(*object.String)
-	idx := index.(*object.Integer).Value
+	idx := int(index.(*object.Integer).Value)
 
-	if idx < 0 || int(idx) >= len(stringObject.Value) {
+	if idx < 0 || idx >= len(stringObject.Value) {
 		return NULL
 	}
 
@@ -1475,10 +1471,6 @@ func isTruthy(obj object.Object) bool {
 	}
 }
 
-func newError(format string, a ...interface{}) *object.Error {
-	return &object.Error{Message: fmt.Sprintf(format, a...)}
-}
-
 func isError(obj object.Object) bool {
 	return obj != nil && obj.Type() == object.ERROR_OBJ
 }
@@ -1498,7 +1490,7 @@ func (i *Interpreter) evalAssignExpression(node *ast.AssignExpression, env *obje
 	case *ast.IndexExpression:
 		return i.evalIndexAssignment(target, val, env)
 	default:
-		return newError("invalid assignment target: expected identifier or index expression, got %T", target)
+		return object.NewError("invalid assignment target: expected identifier or index expression, got %T", target)
 	}
 
 	return val
@@ -1615,9 +1607,4 @@ func (i *Interpreter) matchesExceptionType(exception *object.Exception, catchCla
 
 	// Check if exception type matches
 	return exception.ExceptionType == catchClause.ExceptionType.Value
-}
-
-// Helper function to check if an object is an exception signal
-func isExceptionSignal(obj object.Object) bool {
-	return obj != nil && obj.Type() == object.ObjectType(object.EXCEPTION_SIGNAL)
 }

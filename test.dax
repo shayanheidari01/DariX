@@ -1,0 +1,29 @@
+// test.dax — quick sanity test for DariX (.dax)
+
+// Arithmetic and comparisons
+var a = 10;
+var b = 20;
+var c = a + b * 2;      // 10 + 20*2 = 50
+var d = c - 5;          // 45
+var gt = c > d;         // true
+var eq = (a + a) == b;  // true
+var notv = !false;      // true
+var n = null;           // null literal
+var neg = -a;           // -10
+
+// Conditionals and reassignment
+var e = 0;
+if (gt) { e = d + 1; } else { e = 0; }
+
+a = a + 1;  // 11
+b = b - 3;  // 17
+
+// Output (handled by interpreter builtin; VM will fallback when encountering calls)
+print("a:", a);
+print("b:", b);
+print("c:", c);
+print("d:", d);
+print("gt:", gt, "eq:", eq, "not:", notv);
+print("e:", e);
+print("n:", n);
+print("neg:", neg);

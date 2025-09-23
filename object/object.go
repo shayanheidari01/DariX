@@ -9,7 +9,6 @@ import (
 	"hash/fnv"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 type ObjectType string
@@ -35,9 +34,8 @@ const (
 const (
 	BREAK_SIGNAL    = "BREAK_SIGNAL"
 	CONTINUE_SIGNAL = "CONTINUE_SIGNAL"
-	// Exception control signals
+	// Exception control signal
 	EXCEPTION_SIGNAL = "EXCEPTION_SIGNAL"
-	FINALLY_SIGNAL   = "FINALLY_SIGNAL"
 )
 
 type Object interface {
@@ -47,41 +45,9 @@ type Object interface {
 	Free()
 }
 
-// Pool برای اشیاء کوچک
-var (
-	booleanPool = sync.Pool{
-		New: func() interface{} {
-			return &Boolean{}
-		},
-	}
-	// اضافه شد
-	stringPool = sync.Pool{
-		New: func() interface{} {
-			return &String{}
-		},
-	}
-	// اضافه شد
-	arrayPool = sync.Pool{
-		New: func() interface{} {
-			return &Array{}
-		},
-	}
-	// اضافه شد
-	mapPool = sync.Pool{
-		New: func() interface{} {
-			return &Map{}
-		},
-	}
-)
-
 // Pool for small integers (0-255) for better performance
 var (
 	smallIntegers [256]*Integer
-	integerPool   = sync.Pool{
-		New: func() interface{} {
-			return &Integer{}
-		},
-	}
 )
 
 // Initialize small integer cache
@@ -106,9 +72,7 @@ func NewInteger(value int64) *Integer {
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 func (i *Integer) Inspect() string  { return strconv.FormatInt(i.Value, 10) }
 func (i *Integer) Free() {
-	// مقداردهی اولیه مجدد برای اطمینان از عدم استفاده دوباره نادرست
-	// i.Value = 0
-	// integerPool.Put(i)
+	// no-op: integers are immutable
 }
 
 type Boolean struct {
@@ -116,17 +80,17 @@ type Boolean struct {
 }
 
 func NewBoolean(value bool) *Boolean {
-	b := booleanPool.Get().(*Boolean)
-	b.Value = value
-	return b
+	// Return canonical singletons to avoid multiple boolean instances
+	if value {
+		return TRUE
+	}
+	return FALSE
 }
 
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
 func (b *Boolean) Inspect() string  { return strconv.FormatBool(b.Value) }
 func (b *Boolean) Free() {
-	// مقداردهی اولیه مجدد
-	b.Value = false
-	booleanPool.Put(b)
+	// no-op: booleans are immutable singletons in this runtime
 }
 
 type Null struct{}
@@ -190,16 +154,12 @@ func (f *Function) Free() {
 	f.Env = nil
 }
 
-// String - تغییر داده شد برای استفاده از پول
+// String 
 type String struct {
 	Value string
 }
 
-func NewString(value string) *String {
-	s := stringPool.Get().(*String)
-	s.Value = value
-	return s
-}
+func NewString(value string) *String { return &String{Value: value} }
 
 func (s *String) Type() ObjectType { return STRING_OBJ }
 func (s *String) Inspect() string {
@@ -207,26 +167,14 @@ func (s *String) Inspect() string {
 }
 
 // Free method added
-func (s *String) Free() {
-	// می‌توانید فیلدهای بزرگ‌تر را صفر کنید تا ارجاع حافظه را قطع کنید
-	// این ممکن است مفید باشد اما نه همیشه ضروری
-	s.Value = ""
-	stringPool.Put(s)
-}
+func (s *String) Free() { /* no-op */ }
 
-// Array - جدید
+// Array 
 type Array struct {
 	Elements []Object
 }
 
-func NewArray(elements []Object) *Array {
-	a := arrayPool.Get().(*Array)
-	// اطمینان از ظرفیت مناسب یا اجازه رشد دینامیک
-	// در اینجا فرض می‌کنیم ظرفیت اولیه کافی است یا لازم نیست
-	// در عمل ممکن است نیاز به مدیریت ظرفیت باشد
-	a.Elements = elements
-	return a
-}
+func NewArray(elements []Object) *Array { return &Array{Elements: elements} }
 
 func (a *Array) Type() ObjectType {
 	return ARRAY_OBJ
@@ -246,32 +194,14 @@ func (a *Array) Inspect() string {
 }
 
 // Free method added
-func (a *Array) Free() {
-	// آزاد کردن عناصر داخلی (در صورت نیاز)
-	for i := range a.Elements {
-		// اینجا نیاز به یک سیستم مدیریت حافظه پیشرفته‌تر داریم
-		// برای سادگی، فرض می‌کنیم عناصر خودشان از پول استفاده می‌کنند
-		// و یا اینکه VM مراقب آزاد کردنشان است.
-		// می‌توانیم آرایه را خالی کنیم تا ارجاعات را قطع کنیم.
-		if a.Elements[i] != nil {
-			a.Elements[i].Free()
-			a.Elements[i] = nil
-		}
-	}
-	a.Elements = a.Elements[:0] // یا a.Elements = nil
-	arrayPool.Put(a)
-}
+func (a *Array) Free() { a.Elements = nil }
 
-// Map - جدید
+// Map 
 type Map struct {
 	Pairs map[Object]Object
 }
 
-func NewMap(pairs map[Object]Object) *Map {
-	m := mapPool.Get().(*Map)
-	m.Pairs = pairs
-	return m
-}
+func NewMap(pairs map[Object]Object) *Map { return &Map{Pairs: pairs} }
 
 func (m *Map) Type() ObjectType { return MAP_OBJ }
 func (m *Map) Inspect() string {
@@ -287,31 +217,7 @@ func (m *Map) Inspect() string {
 }
 
 // Free method added
-func (m *Map) Free() {
-	// آزاد کردن جفت‌ها (در صورت نیاز)
-	for k, v := range m.Pairs {
-		// مانند Array، مدیریت حافظه داخلی پیچیده است
-		// فرض می‌کنیم VM یا سیستم دیگری مراقب است.
-		// می‌توانیم مپ را خالی کنیم.
-		if k != nil {
-			k.Free()
-		}
-		if v != nil {
-			v.Free()
-		}
-		delete(m.Pairs, k) // یا m.Pairs = nil
-	}
-	// اطمینان از اینکه مپ خالی است
-	if m.Pairs != nil {
-		for k := range m.Pairs {
-			// اگر کلیدها/مقادیر Free داشته باشند، باید آن‌ها را هم آزاد کنیم
-			// اینجا فرض می‌کنیم که در حلقه بالا انجام شده است.
-			delete(m.Pairs, k)
-		}
-	}
-	m.Pairs = nil
-	mapPool.Put(m)
-}
+func (m *Map) Free() { m.Pairs = nil }
 
 type Environment struct {
 	store map[string]Object
@@ -340,11 +246,6 @@ func (e *Environment) Get(name string) (Object, bool) {
 }
 
 func (e *Environment) Set(name string, val Object) Object {
-	// قبل از تنظیم، اگر مقدار قبلی وجود داشت، آن را آزاد کنید (در صورت نیاز)
-	// این یک سیستم RC ساده است.
-	if oldVal, exists := e.store[name]; exists && oldVal != val {
-		oldVal.Free()
-	}
 	e.store[name] = val
 	return val
 }
@@ -353,9 +254,6 @@ func (e *Environment) Set(name string, val Object) Object {
 func (e *Environment) Update(name string, val Object) bool {
 	// First check current scope
 	if _, exists := e.store[name]; exists {
-		if oldVal := e.store[name]; oldVal != val {
-			oldVal.Free()
-		}
 		e.store[name] = val
 		return true
 	}
@@ -422,6 +320,8 @@ func Equals(a, b Object) bool {
 	switch aVal := a.(type) {
 	case *Integer:
 		return aVal.Value == b.(*Integer).Value
+	case *Float:
+		return aVal.Value == b.(*Float).Value
 	case *String:
 		return aVal.Value == b.(*String).Value
 	case *Boolean:
@@ -509,11 +409,6 @@ var (
 	TRUE  = &Boolean{Value: true}
 	FALSE = &Boolean{Value: false}
 )
-
-// و تابع برای ایجاد شیء NULL
-func GetNull() Object {
-	return NULL
-}
 
 // ===== EXCEPTION SYSTEM =====
 

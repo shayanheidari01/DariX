@@ -23,7 +23,6 @@ const (
 	AND      = "&&"
 	ASTERISK = "*"
 	SLASH    = "/"
-	MOD      = "%"
 
 	LT = "<"
 	GT = ">"
@@ -101,4 +100,10 @@ func LookupIdent(ident string) TokenType {
 type Token struct {
 	Type    TokenType
 	Literal string
+	File    string
+	// 1-based source position of the token's first character
+	Line   int
+	Column int
+	// 0-based byte offset from the start of the source
+	Offset int
 }

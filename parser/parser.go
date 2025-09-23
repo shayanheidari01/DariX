@@ -799,11 +799,25 @@ func (p *Parser) peekPrecedence() int {
 
 // Error handling
 func (p *Parser) Errors() []string {
-	return p.errors
+    return p.errors
 }
 
 func (p *Parser) addError(format string, args ...interface{}) {
-	p.errors = append(p.errors, fmt.Sprintf(format, args...))
+    // Prefer current token position; fallback to peek token.
+    file := p.curToken.File
+    line, col := p.curToken.Line, p.curToken.Column
+    if line == 0 && p.peekToken.Line != 0 {
+        file, line, col = p.peekToken.File, p.peekToken.Line, p.peekToken.Column
+    }
+    base := fmt.Sprintf(format, args...)
+    switch {
+    case file != "" && line > 0 && col > 0:
+        p.errors = append(p.errors, fmt.Sprintf("%s:%d:%d: %s", file, line, col, base))
+    case line > 0 && col > 0:
+        p.errors = append(p.errors, fmt.Sprintf("%d:%d: %s", line, col, base))
+    default:
+        p.errors = append(p.errors, base)
+    }
 }
 
 // ===== EXCEPTION HANDLING PARSERS =====

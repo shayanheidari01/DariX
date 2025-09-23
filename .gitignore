@@ -1,0 +1,56 @@
+# Go build artifacts
+bin/
+build/
+dist/
+out/
+tmp/
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Coverage and profiling
+*.cover
+*.cov
+*.prof
+*.pprof
+coverage/
+profile.out
+*.lcov
+
+# Logs
+*.log
+logs/
+
+# IDE/editor settings
+.vscode/
+.idea/
+.vs/
+*.code-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Caches and temp files
+.cache/
+*.tmp
+
+# Node modules (if any tooling uses Node)
+node_modules/
