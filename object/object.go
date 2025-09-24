@@ -308,6 +308,15 @@ func (e *Environment) Update(name string, val Object) bool {
 	return false
 }
 
+// GetAll returns all variables in the current environment (not including outer scopes)
+func (e *Environment) GetAll() map[string]Object {
+	result := make(map[string]Object)
+	for k, v := range e.store {
+		result[k] = v
+	}
+	return result
+}
+
 // تابع Free برای Environment اضافه نشده است زیرا معمولاً توسط
 // مکانیزم scope management در interpreter مدیریت می‌شود.
 

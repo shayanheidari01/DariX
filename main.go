@@ -3,13 +3,13 @@
 package main
 
 import (
-    "bufio"
     "darix/ast"
     "darix/compiler"
     "darix/interpreter"
     "darix/lexer"
     "darix/object"
     "darix/parser"
+    "darix/repl"
     "darix/internal/native"
     "darix/internal/version"
     "darix/vm"
@@ -37,7 +37,7 @@ func main() {
             runFileWithOptions(file, backend)
             return
         case "repl":
-            startRepl()
+            startEnhancedRepl()
             return
         case "eval":
             if len(os.Args) < 3 {
@@ -70,7 +70,7 @@ func main() {
             os.Exit(1)
         }
     }
-    startRepl()
+    startEnhancedRepl()
 }
 
 func runCode(code string) {
@@ -120,84 +120,21 @@ func runFileWithOptions(filename, backend string) {
     executeProgram(program, displayName, backend)
 }
 
-func startRepl() {
-    scanner := bufio.NewScanner(os.Stdin)
-    inter := interpreter.New()
-    fmt.Println("DariX Language REPL")
-    fmt.Println("Type 'exit' to quit")
-    var buffer strings.Builder
-
-    var parenCount, braceCount, bracketCount int
-
-    for {
-        fmt.Print(">>> ")
-        scanner.Scan()
-        line := scanner.Text()
-        trimmedLine := strings.TrimSpace(line)
-
-        if trimmedLine == "exit" && buffer.Len() == 0 && parenCount == 0 && braceCount == 0 && bracketCount == 0 {
-            break
-        }
-
-        // Count groupings
-        for _, ch := range line {
-            switch ch {
-            case '(':
-                parenCount++
-            case ')':
-                parenCount--
-            case '{':
-                braceCount++
-            case '}':
-                braceCount--
-            case '[':
-                bracketCount++
-            case ']':
-                bracketCount--
-            }
-        }
-
-        buffer.WriteString(line)
-        buffer.WriteString("\n")
-
-        if parenCount > 0 || braceCount > 0 || bracketCount > 0 {
-            continue
-        }
-
-        input := buffer.String()
-        buffer.Reset()
-        parenCount = 0
-        braceCount = 0
-        bracketCount = 0
-
-        l := lexer.NewWithFile(input, "<repl>")
-        p := parser.New(l)
-        p.SetReplMode(true)
-        program := p.ParseProgram()
-
-        if len(p.Errors()) != 0 {
-            for _, msg := range p.Errors() {
-                if !strings.Contains(msg, "warning: missing closing") {
-                    fmt.Printf("Parse error: %s\n", msg)
-                }
-            }
-            continue
-        }
-
-        result := inter.Interpret(program)
-        if result != nil {
-            switch result.Type() {
-            case object.ERROR_OBJ:
-                fmt.Println(result.Inspect())
-            case object.NULL_OBJ:
-                // ignore
-            default:
-                fmt.Println(result.Inspect())
-            }
-        }
-
-        os.Stdout.Sync()
+// startEnhancedRepl starts the enhanced REPL with advanced features
+func startEnhancedRepl() {
+    r := repl.New(os.Stdin, os.Stdout)
+    
+    // Set backend and CPU budget from global variables if available
+    if vmCPUbudget > 0 {
+        r.SetVMCPUBudget(vmCPUbudget)
     }
+    
+    r.Start()
+}
+
+// Legacy REPL function kept for compatibility
+func startRepl() {
+    startEnhancedRepl()
 }
 
 func printHelp() {

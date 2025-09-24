@@ -41,6 +41,11 @@ func New() *Interpreter {
 	return inter
 }
 
+// GetEnvironment returns the current environment for REPL introspection
+func (i *Interpreter) GetEnvironment() *object.Environment {
+	return i.env
+}
+
 func (i *Interpreter) initBuiltins() {
 	i.builtins = map[string]*object.Builtin{
 		"print": {
