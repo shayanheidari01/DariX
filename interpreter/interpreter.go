@@ -908,6 +908,12 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 	case *ast.ThrowStatement:
 		return i.evalThrowStatement(node, env)
 
+	case *ast.ClassDeclaration:
+		return i.evalClassDeclaration(node, env)
+
+	case *ast.MemberExpression:
+		return i.evalMemberExpression(node, env)
+
 	default:
 		return object.NewError("unknown node type: %T", node)
 	}
@@ -976,8 +982,10 @@ func (i *Interpreter) evalAssignStatement(node *ast.AssignStatement, env *object
 		}
 	case *ast.IndexExpression:
 		return i.evalIndexAssignment(target, val, env)
+	case *ast.MemberExpression:
+		return i.evalMemberAssignment(target, val, env)
 	default:
-		return object.NewError("invalid assignment target: expected identifier or index expression, got %T", target)
+		return object.NewError("invalid assignment target: expected identifier, index expression, or member expression, got %T", target)
 	}
 
 	return val
@@ -1071,12 +1079,18 @@ func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object
 	// Native module: import "go:<name>"
 	if strings.HasPrefix(path, "go:") {
 		name := strings.TrimPrefix(path, "go:")
+		// Capability gating
+		if !native.ModuleAllowed(name) {
+			return object.NewError("import: native module %q not allowed by policy", name)
+		}
 		if mod, ok := native.Get(name); ok {
 			modEnv := object.NewEnclosedEnvironment(env)
-			// export functions into both module env and current env (no namespace operator yet)
+			// Export into module env; inject to global if policy allows
 			for fname, fn := range mod.Functions {
 				modEnv.Set(fname, fn)
-				env.Set(fname, fn)
+				if native.GetPolicy().InjectToGlobal {
+					env.Set(fname, fn)
+				}
 			}
 			module := &object.Module{Env: modEnv, Path: path}
 			i.loadedModules[path] = module
@@ -1350,6 +1364,54 @@ func (i *Interpreter) applyFunction(fn object.Object, args []object.Object) obje
 
 	case *object.Builtin:
 		return fn.Fn(args...)
+
+	case *object.Class:
+		// Class instantiation - create new instance
+		instance := &object.Instance{
+			Class:  fn,
+			Fields: make(map[string]object.Object),
+		}
+		
+		// Call __init__ method if it exists
+		if initMethod, exists := fn.Members["__init__"]; exists {
+			if initFn, ok := initMethod.(*object.Function); ok {
+				// Prepend 'self' (instance) to arguments
+				selfArgs := append([]object.Object{instance}, args...)
+				
+				// Call __init__ with self as first argument
+				extendedEnv := object.NewEnclosedEnvironment(initFn.Env)
+				if len(selfArgs) != len(initFn.Parameters) {
+					return object.NewError("wrong number of arguments for __init__: expected %d, got %d", len(initFn.Parameters), len(selfArgs))
+				}
+				
+				for idx, param := range initFn.Parameters {
+					extendedEnv.Set(param.Value, selfArgs[idx])
+				}
+				
+				result := i.eval(initFn.Body, extendedEnv)
+				if isError(result) {
+					return result
+				}
+			}
+		}
+		
+		return instance
+
+	case *object.BoundMethod:
+		// Call bound method with self as first argument
+		selfArgs := append([]object.Object{fn.Self}, args...)
+		
+		if len(selfArgs) != len(fn.Fn.Parameters) {
+			return object.NewError("wrong number of arguments: expected %d, got %d", len(fn.Fn.Parameters), len(selfArgs))
+		}
+
+		extendedEnv := object.NewEnclosedEnvironment(fn.Fn.Env)
+		for idx, param := range fn.Fn.Parameters {
+			extendedEnv.Set(param.Value, selfArgs[idx])
+		}
+
+		evaluated := i.eval(fn.Fn.Body, extendedEnv)
+		return i.unwrapReturnValue(evaluated)
 
 	default:
 		return object.NewError("not a function: %s", fn.Type())
@@ -1681,4 +1743,101 @@ func (i *Interpreter) currentStackTrace() *object.StackTrace {
     frames := make([]*object.StackFrame, len(i.callStack))
     copy(frames, i.callStack)
     return &object.StackTrace{Frames: frames}
+}
+
+// evalClassDeclaration evaluates class declarations
+func (i *Interpreter) evalClassDeclaration(node *ast.ClassDeclaration, env *object.Environment) object.Object {
+	// Create a new class object
+	class := &object.Class{
+		Name:    node.Name.Value,
+		Members: make(map[string]object.Object),
+	}
+
+	// Create a new environment for the class body
+	classEnv := object.NewEnclosedEnvironment(env)
+	
+	// Evaluate the class body to collect methods and class variables
+	for _, stmt := range node.Body.Statements {
+		switch s := stmt.(type) {
+		case *ast.FunctionDeclaration:
+			// Add method to class
+			fn := &object.Function{
+				Name:       s.Name.Value,
+				Parameters: s.Parameters,
+				Env:        classEnv,
+				Body:       s.Body,
+			}
+			class.Members[s.Name.Value] = fn
+		case *ast.LetStatement:
+			// Add class variable
+			val := i.eval(s.Value, classEnv)
+			if isError(val) {
+				return val
+			}
+			class.Members[s.Name.Value] = val
+		}
+	}
+
+	// Register the class in the environment
+	env.Set(node.Name.Value, class)
+	return NULL
+}
+
+// evalMemberExpression evaluates member access expressions like obj.prop
+func (i *Interpreter) evalMemberExpression(node *ast.MemberExpression, env *object.Environment) object.Object {
+	left := i.eval(node.Left, env)
+	if isError(left) {
+		return left
+	}
+
+	switch obj := left.(type) {
+	case *object.Instance:
+		// Check instance fields first
+		if field, exists := obj.Fields[node.Property.Value]; exists {
+			return field
+		}
+		// Then check class methods
+		if method, exists := obj.Class.Members[node.Property.Value]; exists {
+			// For methods, we need to bind 'self' to the instance
+			if fn, ok := method.(*object.Function); ok {
+				return &object.BoundMethod{
+					Self: obj,
+					Fn:   fn,
+				}
+			}
+			return method
+		}
+		return object.NewError("property '%s' not found on instance of class '%s'", node.Property.Value, obj.Class.Name)
+	
+	case *object.Class:
+		// Access class members directly
+		if member, exists := obj.Members[node.Property.Value]; exists {
+			return member
+		}
+		return object.NewError("property '%s' not found on class '%s'", node.Property.Value, obj.Name)
+	
+	default:
+		return object.NewError("member access not supported on type %T", obj)
+	}
+}
+
+// evalMemberAssignment handles member assignment like obj.prop = value
+func (i *Interpreter) evalMemberAssignment(memberExpr *ast.MemberExpression, val object.Object, env *object.Environment) object.Object {
+	left := i.eval(memberExpr.Left, env)
+	if isError(left) {
+		return left
+	}
+
+	switch obj := left.(type) {
+	case *object.Instance:
+		// Set instance field
+		obj.Fields[memberExpr.Property.Value] = val
+		return val
+	case *object.Class:
+		// Set class member
+		obj.Members[memberExpr.Property.Value] = val
+		return val
+	default:
+		return object.NewError("member assignment not supported on type %T", obj)
+	}
 }

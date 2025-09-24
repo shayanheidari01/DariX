@@ -11,17 +11,21 @@ import (
 )
 
 type VM struct {
-	constants []object.Object
-	globals   []object.Object
+    constants []object.Object
+    globals   []object.Object
 
-	stack []object.Object
-	sp    int // points to next value, top = sp-1
+    stack []object.Object
+    sp    int // points to next value, top = sp-1
 
-	ip           int
-	instructions code.Instructions
-	bcMagic      string
-	bcVersion    string
-	debug        compiler.DebugInfo
+    ip           int
+    instructions code.Instructions
+    bcMagic      string
+    bcVersion    string
+    debug        compiler.DebugInfo
+
+    // Optional instruction budget (0 => unlimited). When >0, the VM will
+    // decrement per executed instruction and stop with an exception when it reaches 0.
+    instrBudget int
 }
 
 const (
@@ -30,17 +34,22 @@ const (
 )
 
 func New(bc *compiler.Bytecode) *VM {
-	vm := &VM{
-		constants:    bc.Constants,
-		globals:      make([]object.Object, InitialGlobs),
-		stack:        make([]object.Object, StackSize),
-		instructions: bc.Instructions,
-		ip:           0,
-		bcMagic:      bc.Magic,
-		bcVersion:    bc.Version,
-		debug:        bc.Debug,
-	}
-	return vm
+    vm := &VM{
+        constants:    bc.Constants,
+        globals:      make([]object.Object, InitialGlobs),
+        stack:        make([]object.Object, StackSize),
+        instructions: bc.Instructions,
+        ip:           0,
+        bcMagic:      bc.Magic,
+        bcVersion:    bc.Version,
+        debug:        bc.Debug,
+    }
+    return vm
+}
+
+// A value <= 0 disables the budget (unlimited).
+func (vm *VM) SetInstructionBudget(n int) {
+	vm.instrBudget = n
 }
 
 func (vm *VM) push(o object.Object) object.Object {
@@ -63,11 +72,19 @@ func (vm *VM) pop() object.Object {
 }
 
 func (vm *VM) Run() object.Object {
-	// Optional: validate bytecode header (non-fatal in dev builds)
 	if vm.bcMagic != "" && vm.bcMagic != compiler.BytecodeMagic {
 		return object.NewError("invalid bytecode: magic mismatch")
 	}
 	for vm.ip = 0; vm.ip < len(vm.instructions); vm.ip++ {
+		// Enforce instruction budget if enabled
+		if vm.instrBudget > 0 {
+			vm.instrBudget--
+			if vm.instrBudget == 0 {
+				ex := object.NewException(object.RUNTIME_ERROR, "instruction budget exceeded")
+				ex.StackTrace = vm.buildStackTrace()
+				return object.NewExceptionSignal(ex)
+			}
+		}
 		op := code.Opcode(vm.instructions[vm.ip])
 		switch op {
 		case code.OpNop:

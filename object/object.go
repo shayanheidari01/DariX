@@ -29,6 +29,10 @@ const (
 	// Exception types
 	EXCEPTION_OBJ   = "EXCEPTION"
 	STACK_TRACE_OBJ = "STACK_TRACE"
+	// Class system
+	CLASS_OBJ        = "CLASS"
+	INSTANCE_OBJ     = "INSTANCE"
+	BOUND_METHOD_OBJ = "BOUND_METHOD"
 )
 
 const (
@@ -44,6 +48,40 @@ type Object interface {
 	// Free آزاد کردن منابع (در صورت نیاز) - برای پول‌ها
 	Free()
 }
+
+// Class represents a Python-like class with methods and class attributes
+type Class struct {
+    Name    string
+    Members map[string]Object // methods and class attributes
+}
+
+func NewClass(name string) *Class { return &Class{Name: name, Members: make(map[string]Object)} }
+
+func (c *Class) Type() ObjectType { return CLASS_OBJ }
+func (c *Class) Inspect() string  { return fmt.Sprintf("<class %s>", c.Name) }
+func (c *Class) Free()            { c.Members = nil }
+
+// Instance represents an instance of a Class with its own fields
+type Instance struct {
+    Class  *Class
+    Fields map[string]Object
+}
+
+func NewInstance(cls *Class) *Instance { return &Instance{Class: cls, Fields: make(map[string]Object)} }
+
+func (inst *Instance) Type() ObjectType { return INSTANCE_OBJ }
+func (inst *Instance) Inspect() string  { return fmt.Sprintf("<%s instance>", inst.Class.Name) }
+func (inst *Instance) Free()            { inst.Class = nil; inst.Fields = nil }
+
+// BoundMethod binds a function to an instance (self)
+type BoundMethod struct {
+    Self *Instance
+    Fn   *Function
+}
+
+func (bm *BoundMethod) Type() ObjectType { return BOUND_METHOD_OBJ }
+func (bm *BoundMethod) Inspect() string  { return fmt.Sprintf("<bound method %s of %s>", bm.Fn.Name, bm.Self.Class.Name) }
+func (bm *BoundMethod) Free()            { bm.Self = nil; bm.Fn = nil }
 
 // Pool for small integers (0-255) for better performance
 var (

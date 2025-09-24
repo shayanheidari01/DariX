@@ -3,253 +3,316 @@
 package main
 
 import (
-	"bufio"
-	"darix/ast"
-	"darix/compiler"
-	"darix/interpreter"
-	"darix/lexer"
-	"darix/object"
-	"darix/parser"
-	"darix/internal/version"
-	"darix/vm"
-	"fmt"
-	"io"
-	"os"
-	"strings"
+    "bufio"
+    "darix/ast"
+    "darix/compiler"
+    "darix/interpreter"
+    "darix/lexer"
+    "darix/object"
+    "darix/parser"
+    "darix/internal/native"
+    "darix/internal/version"
+    "darix/vm"
+    "fmt"
+    "io"
+    "os"
+    "strconv"
+    "strings"
 )
 
+var vmCPUbudget int
+
 func main() {
-	if len(os.Args) > 1 {
-		cmd := os.Args[1]
-		switch cmd {
-		case "run":
-			backend, file, err := parseRunArgs(os.Args[2:])
-			if err != nil || file == "" {
-				fmt.Println("Usage: darix run [--backend=auto|vm|interp] <file.dax|->")
-				os.Exit(1)
-			}
-			runFileWithOptions(file, backend)
-			return
-		case "repl":
-			startRepl()
-			return
-		case "eval":
-			if len(os.Args) < 3 {
-				fmt.Println("Usage: darix eval \"<code>\"")
-				os.Exit(1)
-			}
-			runCode(os.Args[2])
-			return
-		case "disasm":
-			if len(os.Args) < 3 {
-				fmt.Println("Usage: darix disasm <file.dax>")
-				os.Exit(1)
-			}
-			disasmFile(os.Args[2])
-			return
-		case "version", "-v", "--version":
-			fmt.Println(version.String())
-			return
-		case "help", "-h", "--help":
-			printHelp()
-			return
-		default:
-			// If it's a file path, run it; otherwise show help
-			if _, err := os.Stat(cmd); err == nil {
-				runFile(cmd)
-				return
-			}
-			fmt.Printf("Unknown command or file: %s\n\n", cmd)
-			printHelp()
-			os.Exit(1)
-		}
-	}
-	startRepl()
+    if len(os.Args) > 1 {
+        cmd := os.Args[1]
+        switch cmd {
+        case "run":
+            backend, file, policy, err := parseRunArgs(os.Args[2:])
+            if err != nil || file == "" {
+                fmt.Println("Usage: darix run [--backend=auto|vm|interp] [--allow=mod1,mod2|*] [--deny=mod1,mod2] [--fs-root=PATH] [--fs-ro] [--inject=true|false] [--cpu=N] <file.dax|->")
+                os.Exit(1)
+            }
+            // Apply capability policy
+            native.SetPolicy(policy)
+            runFileWithOptions(file, backend)
+            return
+        case "repl":
+            startRepl()
+            return
+        case "eval":
+            if len(os.Args) < 3 {
+                fmt.Println("Usage: darix eval \"<code>\"")
+                os.Exit(1)
+            }
+            runCode(os.Args[2])
+            return
+        case "disasm":
+            if len(os.Args) < 3 {
+                fmt.Println("Usage: darix disasm <file.dax>")
+                os.Exit(1)
+            }
+            disasmFile(os.Args[2])
+            return
+        case "version", "-v", "--version":
+            fmt.Println(version.String())
+            return
+        case "help", "-h", "--help":
+            printHelp()
+            return
+        default:
+            // If it's a file path, run it; otherwise show help
+            if _, err := os.Stat(cmd); err == nil {
+                runFile(cmd)
+                return
+            }
+            fmt.Printf("Unknown command or file: %s\n\n", cmd)
+            printHelp()
+            os.Exit(1)
+        }
+    }
+    startRepl()
 }
 
 func runCode(code string) {
-	l := lexer.NewWithFile(code, "<eval>")
-	p := parser.New(l)
-	program := p.ParseProgram()
+    l := lexer.NewWithFile(code, "<eval>")
+    p := parser.New(l)
+    program := p.ParseProgram()
 
-	if len(p.Errors()) != 0 {
-		for _, msg := range p.Errors() {
-			fmt.Printf("Parse error: %s\n", msg)
-		}
-		os.Exit(1)
-	}
+    if len(p.Errors()) != 0 {
+        for _, msg := range p.Errors() {
+            fmt.Printf("Parse error: %s\n", msg)
+        }
+        os.Exit(1)
+    }
 
-	executeProgram(program, "<eval>", "auto")
+    executeProgram(program, "<eval>", "auto")
 }
 
 func runFile(filename string) {
-	runFileWithOptions(filename, "auto")
+    runFileWithOptions(filename, "auto")
 }
 
 func runFileWithOptions(filename, backend string) {
-	var content []byte
-	var err error
-	displayName := filename
-	if filename == "-" {
-		content, err = io.ReadAll(os.Stdin)
-		displayName = "<stdin>"
-	} else {
-		content, err = os.ReadFile(filename)
-	}
-	if err != nil {
-		fmt.Printf("Error reading file: %s\n", err)
-		os.Exit(1)
-	}
+    var content []byte
+    var err error
+    displayName := filename
+    if filename == "-" {
+        content, err = io.ReadAll(os.Stdin)
+        displayName = "<stdin>"
+    } else {
+        content, err = os.ReadFile(filename)
+    }
+    if err != nil {
+        fmt.Printf("Error reading file: %s\n", err)
+        os.Exit(1)
+    }
 
-	l := lexer.NewWithFile(string(content), displayName)
-	p := parser.New(l)
-	program := p.ParseProgram()
-	if len(p.Errors()) != 0 {
-		for _, msg := range p.Errors() {
-			fmt.Printf("Parse error: %s\n", msg)
-		}
-		os.Exit(1)
-	}
+    l := lexer.NewWithFile(string(content), displayName)
+    p := parser.New(l)
+    program := p.ParseProgram()
+    if len(p.Errors()) != 0 {
+        for _, msg := range p.Errors() {
+            fmt.Printf("Parse error: %s\n", msg)
+        }
+        os.Exit(1)
+    }
 
-	executeProgram(program, displayName, backend)
+    executeProgram(program, displayName, backend)
 }
 
 func startRepl() {
-	scanner := bufio.NewScanner(os.Stdin)
-	inter := interpreter.New()
-	fmt.Println("DariX Language REPL")
-	fmt.Println("Type 'exit' to quit")
-	var buffer strings.Builder
+    scanner := bufio.NewScanner(os.Stdin)
+    inter := interpreter.New()
+    fmt.Println("DariX Language REPL")
+    fmt.Println("Type 'exit' to quit")
+    var buffer strings.Builder
 
-	var parenCount, braceCount, bracketCount int
+    var parenCount, braceCount, bracketCount int
 
-	for {
-		fmt.Print(">>> ")
-		scanner.Scan()
-		line := scanner.Text()
-		trimmedLine := strings.TrimSpace(line)
+    for {
+        fmt.Print(">>> ")
+        scanner.Scan()
+        line := scanner.Text()
+        trimmedLine := strings.TrimSpace(line)
 
-		if trimmedLine == "exit" && buffer.Len() == 0 && parenCount == 0 && braceCount == 0 && bracketCount == 0 {
-			break
-		}
+        if trimmedLine == "exit" && buffer.Len() == 0 && parenCount == 0 && braceCount == 0 && bracketCount == 0 {
+            break
+        }
 
-		// شمارش گروه‌بندی‌های باز و بسته در خط فعلی
-		for _, ch := range line {
-			switch ch {
-			case '(':
-				parenCount++
-			case ')':
-				parenCount--
-			case '{':
-				braceCount++
-			case '}':
-				braceCount--
-			case '[':
-				bracketCount++
-			case ']':
-				bracketCount--
-			}
-		}
+        // Count groupings
+        for _, ch := range line {
+            switch ch {
+            case '(':
+                parenCount++
+            case ')':
+                parenCount--
+            case '{':
+                braceCount++
+            case '}':
+                braceCount--
+            case '[':
+                bracketCount++
+            case ']':
+                bracketCount--
+            }
+        }
 
-		// جمع‌آوری خط در buffer
-		buffer.WriteString(line)
-		buffer.WriteString("\n") // اضافه کردن خط جدید برای حفظ ساختار
+        buffer.WriteString(line)
+        buffer.WriteString("\n")
 
-		// اگر هنوز گروه‌بندی‌های بازی وجود دارد، منتظر بقیه ورودی‌ها بمان
-		if parenCount > 0 || braceCount > 0 || bracketCount > 0 {
-			continue
-		}
+        if parenCount > 0 || braceCount > 0 || bracketCount > 0 {
+            continue
+        }
 
-		// اکنون فرض می‌کنیم که یک دستور کامل جمع‌آوری شده است
-		input := buffer.String()
-		// ریست کردن buffer و شمارنده‌ها برای دستور بعدی
-		buffer.Reset()
-		parenCount = 0
-		braceCount = 0
-		bracketCount = 0
+        input := buffer.String()
+        buffer.Reset()
+        parenCount = 0
+        braceCount = 0
+        bracketCount = 0
 
-		// لکس و پارس کردن ورودی
-		l := lexer.NewWithFile(input, "<repl>")
-		p := parser.New(l)
-		p.SetReplMode(true) // فعال کردن حالت REPL
-		program := p.ParseProgram()
+        l := lexer.NewWithFile(input, "<repl>")
+        p := parser.New(l)
+        p.SetReplMode(true)
+        program := p.ParseProgram()
 
-		// چک کردن خطاها
-		if len(p.Errors()) != 0 {
-			for _, msg := range p.Errors() {
-				// حذف هشدارهای مربوط به پرانتز/براکت ناکامل
-				if !strings.Contains(msg, "warning: missing closing") {
-					fmt.Printf("Parse error: %s\n", msg)
-				}
-			}
-			continue
-		}
+        if len(p.Errors()) != 0 {
+            for _, msg := range p.Errors() {
+                if !strings.Contains(msg, "warning: missing closing") {
+                    fmt.Printf("Parse error: %s\n", msg)
+                }
+            }
+            continue
+        }
 
-		// تفسیر و اجرای برنامه
-		result := inter.Interpret(program)
-		if result != nil {
-			switch result.Type() {
-			case object.ERROR_OBJ:
-				// Already formatted by runtime; print as-is
-				fmt.Println(result.Inspect())
-			case object.NULL_OBJ:
-				// خالی
-			default:
-				fmt.Println(result.Inspect()) // ← این‌جا رشتهٔ برگردانده‌شده را چاپ می‌کند
-			}
-		}
+        result := inter.Interpret(program)
+        if result != nil {
+            switch result.Type() {
+            case object.ERROR_OBJ:
+                fmt.Println(result.Inspect())
+            case object.NULL_OBJ:
+                // ignore
+            default:
+                fmt.Println(result.Inspect())
+            }
+        }
 
-		// اطمینان از پاک شدن بافر خروجی
-		os.Stdout.Sync()
-	}
+        os.Stdout.Sync()
+    }
 }
 
 func printHelp() {
-	fmt.Println("DariX command line")
-	fmt.Println()
-	fmt.Println("Usage:")
-	fmt.Println("  darix run [--backend=auto|vm|interp] <file.dax|->  Run a script (use '-' for stdin)")
-	fmt.Println("  darix disasm <file.dax>                            Disassemble bytecode")
-	fmt.Println("  darix repl                                         Start interactive REPL")
-	fmt.Println("  darix eval \"<code>\"                                 Evaluate a code snippet")
-	fmt.Println("  darix version                                      Show version info")
-	fmt.Println("  darix help                                         Show this help")
+    fmt.Println("DariX command line")
+    fmt.Println()
+    fmt.Println("Usage:")
+    fmt.Println("  darix run [--backend=auto|vm|interp] [--allow=mod1,mod2|*] [--deny=mod1,mod2] [--fs-root=PATH] [--fs-ro] [--inject=true|false] [--cpu=N] <file.dax|->  Run a script (use '-' for stdin)")
+    fmt.Println("  darix disasm <file.dax>                            Disassemble bytecode")
+    fmt.Println("  darix repl                                         Start interactive REPL")
+    fmt.Println("  darix eval \"<code>\"                                 Evaluate a code snippet")
+    fmt.Println("  darix version                                      Show version info")
+    fmt.Println("  darix help                                         Show this help")
 }
 
 // parseRunArgs parses flags for the 'run' subcommand
-func parseRunArgs(args []string) (backend, file string, err error) {
-	backend = "auto"
-	for _, a := range args {
-		if strings.HasPrefix(a, "--backend=") {
-			v := strings.TrimPrefix(a, "--backend=")
-			switch v {
-			case "auto", "vm", "interp":
-				backend = v
-			default:
-				return "", "", fmt.Errorf("invalid backend: %s", v)
-			}
-			continue
-		}
-		if strings.HasPrefix(a, "--") {
-			return "", "", fmt.Errorf("unknown flag: %s", a)
-		}
-		if file == "" {
-			file = a
-		} else {
-			return "", "", fmt.Errorf("unexpected argument: %s", a)
-		}
-	}
-	return backend, file, nil
+func parseRunArgs(args []string) (backend, file string, policy *native.CapabilityPolicy, err error) {
+    backend = "auto"
+    // Start with default (backward-compatible): allow all native, inject to global
+    p := native.DefaultAllowAll()
+    var seenAllow, seenDeny bool
+    for _, a := range args {
+        if strings.HasPrefix(a, "--backend=") {
+            v := strings.TrimPrefix(a, "--backend=")
+            switch v {
+            case "auto", "vm", "interp":
+                backend = v
+            default:
+                return "", "", nil, fmt.Errorf("invalid backend: %s", v)
+            }
+            continue
+        }
+        if strings.HasPrefix(a, "--allow=") {
+            list := strings.TrimPrefix(a, "--allow=")
+            p.AllowAllNative = false
+            if p.AllowGoModules == nil { p.AllowGoModules = map[string]bool{} }
+            if list == "*" {
+                // revert to allow-all explicitly
+                p.AllowAllNative = true
+            } else if list != "" {
+                for _, m := range strings.Split(list, ",") {
+                    m = strings.TrimSpace(m)
+                    if m != "" { p.AllowGoModules[m] = true }
+                }
+            }
+            seenAllow = true
+            continue
+        }
+        if strings.HasPrefix(a, "--deny=") {
+            list := strings.TrimPrefix(a, "--deny=")
+            // Deny-list works when AllowAllNative is true
+            p.AllowAllNative = true
+            if p.AllowGoModules == nil { p.AllowGoModules = map[string]bool{} }
+            if list != "" {
+                for _, m := range strings.Split(list, ",") {
+                    m = strings.TrimSpace(m)
+                    if m != "" { p.AllowGoModules[m] = false }
+                }
+            }
+            seenDeny = true
+            continue
+        }
+        if strings.HasPrefix(a, "--fs-root=") {
+            p.FSRoot = strings.TrimPrefix(a, "--fs-root=")
+            continue
+        }
+        if a == "--fs-ro" {
+            p.FSReadOnly = true
+            continue
+        }
+        if strings.HasPrefix(a, "--inject=") {
+            v := strings.TrimPrefix(a, "--inject=")
+            if v == "true" {
+                p.InjectToGlobal = true
+            } else if v == "false" {
+                p.InjectToGlobal = false
+            } else {
+                return "", "", nil, fmt.Errorf("invalid value for --inject: %s", v)
+            }
+            continue
+        }
+        if strings.HasPrefix(a, "--cpu=") {
+            v := strings.TrimPrefix(a, "--cpu=")
+            n, e := strconv.Atoi(v)
+            if e != nil || n < 0 {
+                return "", "", nil, fmt.Errorf("invalid value for --cpu: %s", v)
+            }
+            vmCPUbudget = n
+            continue
+        }
+        if strings.HasPrefix(a, "--") {
+            return "", "", nil, fmt.Errorf("unknown flag: %s", a)
+        }
+        if file == "" {
+            file = a
+        } else {
+            return "", "", nil, fmt.Errorf("unexpected argument: %s", a)
+        }
+    }
+    // If both allow and deny seen, prefer allow-list mode (explicit only)
+    if seenAllow && !seenDeny {
+        // already set to allow-only
+    } else if !seenAllow && seenDeny {
+        // already set to allow-all with deny-list
+    }
+    return backend, file, p, nil
 }
 
 // executeProgram runs an AST program using the requested backend selection
 func executeProgram(program *ast.Program, displayName, backend string) {
-	if backend == "interp" {
-		inter := interpreter.New()
-		result := inter.Interpret(program)
-		handleRuntimeResult(result)
-		return
-	}
+    if backend == "interp" {
+        inter := interpreter.New()
+        result := inter.Interpret(program)
+        handleRuntimeResult(result)
+        return
+    }
 	if backend == "vm" {
 		comp := compiler.New()
 		if err := comp.Compile(program); err != nil {
@@ -258,6 +321,9 @@ func executeProgram(program *ast.Program, displayName, backend string) {
 		}
 		bc := comp.Bytecode()
 		machine := vm.New(bc)
+		if vmCPUbudget > 0 {
+			machine.SetInstructionBudget(vmCPUbudget)
+		}
 		result := machine.Run()
 		handleRuntimeResult(result)
 		return
@@ -267,6 +333,9 @@ func executeProgram(program *ast.Program, displayName, backend string) {
 	if err := comp.Compile(program); err == nil {
 		bc := comp.Bytecode()
 		machine := vm.New(bc)
+		if vmCPUbudget > 0 {
+			machine.SetInstructionBudget(vmCPUbudget)
+		}
 		result := machine.Run()
 		if !handledAsErrorOrException(result) {
 			return

@@ -37,6 +37,7 @@ const (
 	COMMA     = ","
 	SEMICOLON = ";"
 	COLON     = ":" // Added
+	DOT       = "." // Added for attribute access
 
 	LPAREN = "("
 	RPAREN = ")"
@@ -48,6 +49,7 @@ const (
 
 	// Keywords
 	FUNCTION = "FUNCTION"
+	CLASS    = "CLASS" // Added for class declarations
 	VAR      = "VAR" // Changed from LET
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
@@ -70,6 +72,7 @@ const (
 
 var keywords = map[string]TokenType{
 	"func":     FUNCTION,
+	"class":    CLASS,
 	"var":      VAR, // Changed from let
 	"true":     TRUE,
 	"false":    FALSE,

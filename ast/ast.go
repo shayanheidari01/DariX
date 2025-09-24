@@ -532,9 +532,9 @@ func (ml *MapLiteral) String() string {
 
 // IndexExpression represents array/map indexing: arr[index]
 type IndexExpression struct {
-	Token token.Token // '[' token
-	Left  Expression
-	Index Expression
+    Token token.Token // '[' token
+    Left  Expression
+    Index Expression
 }
 
 func (ie *IndexExpression) expressionNode()      {}
@@ -551,11 +551,54 @@ func (ie *IndexExpression) String() string {
 	return fmt.Sprintf("(%s[%s])", leftStr, indexStr)
 }
 
+// MemberExpression represents attribute access: obj.prop
+type MemberExpression struct {
+    Token    token.Token // '.' token
+    Left     Expression
+    Property *Identifier
+}
+
+func (me *MemberExpression) expressionNode()      {}
+func (me *MemberExpression) TokenLiteral() string { return me.Token.Literal }
+func (me *MemberExpression) String() string {
+    leftStr := ""
+    if me.Left != nil {
+        leftStr = me.Left.String()
+    }
+    prop := ""
+    if me.Property != nil {
+        prop = me.Property.String()
+    }
+    return fmt.Sprintf("(%s.%s)", leftStr, prop)
+}
+
+// ClassDeclaration represents: class Name { ... }
+type ClassDeclaration struct {
+    Token token.Token // 'class' token
+    Name  *Identifier
+    Body  *BlockStatement
+}
+
+func (cd *ClassDeclaration) statementNode()       {}
+func (cd *ClassDeclaration) TokenLiteral() string { return cd.Token.Literal }
+func (cd *ClassDeclaration) String() string {
+    var out strings.Builder
+    out.WriteString("class ")
+    if cd.Name != nil {
+        out.WriteString(cd.Name.String())
+    }
+    out.WriteString(" ")
+    if cd.Body != nil {
+        out.WriteString(cd.Body.String())
+    }
+    return out.String()
+}
+
 // WhileExpression represents a while loop used as an expression
 type WhileExpression struct {
-	Token     token.Token     // 'while' token
-	Condition Expression      // condition
-	Body      *BlockStatement // body
+    Token     token.Token     // 'while' token
+    Condition Expression      // condition
+    Body      *BlockStatement // body
 }
 
 func (we *WhileExpression) expressionNode()      {}
@@ -572,56 +615,24 @@ func (we *WhileExpression) String() string {
 	return fmt.Sprintf("while(%s) %s", condition, body)
 }
 
-// ForExpression represents a for loop used as an expression
-type ForExpression struct {
-	Token     token.Token     // 'for' token
-	Init      Statement       // initialization statement
-	Condition Expression      // loop condition
-	Post      Statement       // post-iteration statement
-	Body      *BlockStatement // body
-}
-
-func (fe *ForExpression) expressionNode()      {}
-func (fe *ForExpression) TokenLiteral() string { return fe.Token.Literal }
-func (fe *ForExpression) String() string {
-	init := ""
-	if fe.Init != nil {
-		init = fe.Init.String()
-	}
-	condition := ""
-	if fe.Condition != nil {
-		condition = fe.Condition.String()
-	}
-	post := ""
-	if fe.Post != nil {
-		post = fe.Post.String()
-	}
-	body := ""
-	if fe.Body != nil {
-		body = fe.Body.String()
-	}
-	return fmt.Sprintf("for(%s; %s; %s) %s", init, condition, post, body)
-}
-
-// ===== EXCEPTION HANDLING AST NODES =====
 
 // ThrowStatement represents a 'throw' or 'raise' statement
 type ThrowStatement struct {
-	Token     token.Token // the 'throw' or 'raise' token
-	Exception Expression  // the exception to throw
+    Token     token.Token // the 'throw' or 'raise' token
+    Exception Expression  // the exception to throw
 }
 
 func (ts *ThrowStatement) statementNode()       {}
 func (ts *ThrowStatement) TokenLiteral() string { return ts.Token.Literal }
 func (ts *ThrowStatement) String() string {
-	var out strings.Builder
-	out.WriteString(ts.TokenLiteral())
-	out.WriteString(" ")
-	if ts.Exception != nil {
-		out.WriteString(ts.Exception.String())
-	}
-	out.WriteString(";")
-	return out.String()
+    var out strings.Builder
+    out.WriteString(ts.TokenLiteral())
+    out.WriteString(" ")
+    if ts.Exception != nil {
+        out.WriteString(ts.Exception.String())
+    }
+    out.WriteString(";")
+    return out.String()
 }
 
 // TryStatement represents a try-catch-finally block

@@ -23,6 +23,7 @@ const (
 	PREFIX  // -X or !X
 	CALL    // myFunction(X)
 	INDEX   // array[index] or map[key]
+	MEMBER  // obj.prop
 )
 
 var precedences = map[token.TokenType]int{
@@ -41,6 +42,7 @@ var precedences = map[token.TokenType]int{
 	token.MODULO:   PRODUCT,
 	token.ASTERISK: PRODUCT,
 	token.LPAREN:   CALL,
+	token.DOT:      MEMBER,
 	token.LBRACKET: INDEX,
 }
 
@@ -119,6 +121,7 @@ func (p *Parser) registerParseFns() {
 	p.infixParseFns[token.AND] = p.parseInfixExpression
 	p.infixParseFns[token.LPAREN] = p.parseCallExpression
 	p.infixParseFns[token.LBRACKET] = p.parseIndexExpression
+	p.infixParseFns[token.DOT] = p.parseMemberExpression
 }
 
 func (p *Parser) nextToken() {
@@ -151,6 +154,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.IMPORT:
 		return p.parseImportStatement()
+	case token.CLASS:
+		return p.parseClassDeclaration()
 	case token.FUNCTION:
 		return p.parseFunctionDeclaration()
 	case token.VAR:
@@ -409,9 +414,19 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 	return exp
 }
 
+func (p *Parser) parseMemberExpression(left ast.Expression) ast.Expression {
+	exp := &ast.MemberExpression{Token: p.curToken, Left: left}
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	exp.Property = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	return exp
+}
+
+
 func (p *Parser) parseAssignmentExpression(left ast.Expression) ast.Expression {
 	if !p.isValidAssignmentTarget(left) {
-		p.addError("invalid assignment target: expected identifier or index expression, got %T", left)
+		p.addError("invalid assignment target: expected identifier, index, or member expression, got %T", left)
 		return nil
 	}
 
@@ -428,7 +443,7 @@ func (p *Parser) parseAssignmentExpression(left ast.Expression) ast.Expression {
 
 func (p *Parser) isValidAssignmentTarget(expr ast.Expression) bool {
 	switch expr.(type) {
-	case *ast.Identifier, *ast.IndexExpression:
+	case *ast.Identifier, *ast.IndexExpression, *ast.MemberExpression:
 		return true
 	default:
 		return false
@@ -455,6 +470,21 @@ func (p *Parser) parseLetStatement() ast.Statement {
 	}
 
 	p.consumeOptionalSemicolon()
+	return stmt
+}
+
+func (p *Parser) parseClassDeclaration() ast.Statement {
+	stmt := &ast.ClassDeclaration{Token: p.curToken}
+
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+	stmt.Body = p.parseBlockStatement()
 	return stmt
 }
 
@@ -553,19 +583,21 @@ func (p *Parser) parseWhileStatement() ast.Statement {
 }
 
 func (p *Parser) parseForStatement() ast.Statement {
-	stmt := &ast.ForStatement{Token: p.curToken}
-
+	// Desugar for(init; condition; post) { body } into:
+	// { init; while (condition or true) { body; post; } }
+	tok := p.curToken
 	if !p.expectPeek(token.LPAREN) {
 		return nil
 	}
 	p.nextToken()
 
-	// Parse init
+	// init
+	var initStmt ast.Statement
 	if p.curToken.Type != token.SEMICOLON {
 		if p.curToken.Type == token.VAR {
-			stmt.Init = p.parseLetStatement()
+			initStmt = p.parseLetStatement()
 		} else {
-			stmt.Init = p.parseExpressionStatement()
+			initStmt = p.parseExpressionStatement()
 		}
 	}
 	if !p.expectCurrent(token.SEMICOLON) {
@@ -573,29 +605,51 @@ func (p *Parser) parseForStatement() ast.Statement {
 	}
 	p.nextToken()
 
-	// Parse condition
+	// condition
+	var condExp ast.Expression
 	if p.curToken.Type != token.SEMICOLON {
-		stmt.Condition = p.parseExpression(LOWEST)
+		condExp = p.parseExpression(LOWEST)
 	}
 	if !p.expectPeek(token.SEMICOLON) {
 		return nil
 	}
 	p.nextToken()
 
-	// Parse post
+	// post
+	var postStmt ast.Statement
 	if p.curToken.Type != token.RPAREN {
 		if p.curToken.Type == token.IDENT && p.peekToken.Type == token.ASSIGN {
-			stmt.Post = p.parseAssignStatement()
+			postStmt = p.parseAssignStatement()
 		} else {
-			stmt.Post = p.parseExpressionStatement()
+			postStmt = p.parseExpressionStatement()
 		}
 	}
 
 	if !p.expectPeek(token.RPAREN) || !p.expectPeek(token.LBRACE) {
 		return nil
 	}
-	stmt.Body = p.parseBlockStatement()
-	return stmt
+	body := p.parseBlockStatement()
+
+	// while body: original body + post (if any)
+	whileBody := &ast.BlockStatement{Token: body.Token, Statements: make([]ast.Statement, 0, len(body.Statements)+1)}
+	whileBody.Statements = append(whileBody.Statements, body.Statements...)
+	if postStmt != nil {
+		whileBody.Statements = append(whileBody.Statements, postStmt)
+	}
+
+	// default condition to true if omitted
+	if condExp == nil {
+		condExp = &ast.Boolean{Token: token.Token{Type: token.TRUE, Literal: "true"}, Value: true}
+	}
+	// while statement
+	whileStmt := &ast.WhileStatement{Token: tok, Condition: condExp, Body: whileBody}
+	// wrap into a block with init first
+	desugared := &ast.BlockStatement{Token: tok, Statements: make([]ast.Statement, 0, 2)}
+	if initStmt != nil {
+		desugared.Statements = append(desugared.Statements, initStmt)
+	}
+	desugared.Statements = append(desugared.Statements, whileStmt)
+	return desugared
 }
 
 func (p *Parser) parseBreakStatement() ast.Statement {
@@ -610,62 +664,16 @@ func (p *Parser) parseContinueStatement() ast.Statement {
 	return stmt
 }
 
-func (p *Parser) parseFunctionDeclaration() ast.Statement {
-	stmt := &ast.FunctionDeclaration{Token: p.curToken}
-
-	if !p.expectPeek(token.IDENT) {
-		return nil
-	}
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if !p.expectPeek(token.LPAREN) {
-		return nil
-	}
-	stmt.Parameters = p.parseFunctionParameters()
-	if !p.expectPeek(token.LBRACE) {
-		return nil
-	}
-	stmt.Body = p.parseBlockStatement()
-	return stmt
-}
-
-func (p *Parser) parseImportStatement() ast.Statement {
-	stmt := &ast.ImportStatement{Token: p.curToken}
-
-	if !p.expectPeek(token.STRING) {
-		return nil
-	}
-	stmt.Path = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
-	p.consumeOptionalSemicolon()
-	return stmt
-}
-
-func (p *Parser) parseWhileExpression() ast.Expression {
-	stmt := p.parseWhileStatement()
-	if whileStmt, ok := stmt.(*ast.WhileStatement); ok && whileStmt != nil {
-		return &ast.WhileExpression{
-			Token:     whileStmt.Token,
-			Condition: whileStmt.Condition,
-			Body:      whileStmt.Body,
-		}
-	}
-	p.addError("expected while statement")
-	return nil
-}
-
 func (p *Parser) parseForExpression() ast.Expression {
+	// Reuse the statement parser and return the desugared block as an expression
 	stmt := p.parseForStatement()
-	if forStmt, ok := stmt.(*ast.ForStatement); ok && forStmt != nil {
-		return &ast.ForExpression{
-			Token:     forStmt.Token,
-			Init:      forStmt.Init,
-			Condition: forStmt.Condition,
-			Post:      forStmt.Post,
-			Body:      forStmt.Body,
-		}
+	if stmt == nil {
+		return nil
 	}
-	p.addError("expected for statement")
-	return nil
+	if block, ok := stmt.(*ast.BlockStatement); ok {
+		return block
+	}
+	return &ast.BlockStatement{Token: p.curToken, Statements: []ast.Statement{stmt}}
 }
 
 // Helper functions
@@ -916,3 +924,50 @@ func (p *Parser) parseThrowStatement() ast.Statement {
 	p.consumeOptionalSemicolon()
 	return stmt
 }
+
+// parseImportStatement parses import statements
+func (p *Parser) parseImportStatement() ast.Statement {
+	stmt := &ast.ImportStatement{Token: p.curToken}
+
+	if !p.expectPeek(token.STRING) {
+		return nil
+	}
+	stmt.Path = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+	p.consumeOptionalSemicolon()
+	return stmt
+}
+
+// parseFunctionDeclaration parses function declarations
+func (p *Parser) parseFunctionDeclaration() ast.Statement {
+	stmt := &ast.FunctionDeclaration{Token: p.curToken}
+
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+	stmt.Parameters = p.parseFunctionParameters()
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+	stmt.Body = p.parseBlockStatement()
+	return stmt
+}
+
+// parseWhileExpression parses while loops as expressions
+func (p *Parser) parseWhileExpression() ast.Expression {
+	stmt := p.parseWhileStatement()
+	if whileStmt, ok := stmt.(*ast.WhileStatement); ok && whileStmt != nil {
+		return &ast.WhileExpression{
+			Token:     whileStmt.Token,
+			Condition: whileStmt.Condition,
+			Body:      whileStmt.Body,
+		}
+	}
+	p.addError("expected while statement")
+	return nil
+}
+

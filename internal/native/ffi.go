@@ -32,6 +32,9 @@ func ffiCall(args ...object.Object) object.Object {
 	if !ok {
 		return object.NewError("ffi_call: first argument must be string (function name)")
 	}
+	if !ModuleAllowed("ffi") {
+		return object.NewError("ffi_call: access to native module ffi denied by policy")
+	}
 	fn, ok := ffiRegistry[nameObj.Value]
 	if !ok {
 		return object.NewError("ffi_call: function %q not registered", nameObj.Value)
@@ -41,7 +44,20 @@ func ffiCall(args ...object.Object) object.Object {
 	if convErr != nil {
 		return object.NewError("ffi_call: %s", convErr)
 	}
-	outs := fn.Call(in)
+	var outs []reflect.Value
+	var recovered any
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				recovered = r
+			}
+		}()
+		outs = fn.Call(in)
+	}()
+	if recovered != nil {
+		ex := object.NewException(object.RUNTIME_ERROR, fmt.Sprintf("panic in ffi: %v", recovered))
+		return object.NewExceptionSignal(ex)
+	}
 	// Handle common patterns: (T), (T, error), (error)
 	if len(outs) == 0 {
 		return object.NULL
@@ -132,6 +148,46 @@ func toGoValue(o object.Object, want reflect.Type) (reflect.Value, error) {
 			return bv.Convert(want), nil
 		}
 		return reflect.Value{}, fmt.Errorf("unsupported bool->%s conversion", want.String())
+	case *object.Array:
+		if want.Kind() == reflect.Slice {
+			elemT := want.Elem()
+			n := len(v.Elements)
+			sl := reflect.MakeSlice(want, n, n)
+			for i := 0; i < n; i++ {
+				gv, err := toGoValue(v.Elements[i], elemT)
+				if err != nil {
+					return reflect.Value{}, fmt.Errorf("slice elem %d: %w", i, err)
+				}
+				sl.Index(i).Set(gv)
+			}
+			return sl, nil
+		}
+		if want.Kind() == reflect.Interface {
+			return reflect.ValueOf(v.Elements), nil
+		}
+		return reflect.Value{}, fmt.Errorf("unsupported array->%s conversion", want.String())
+	case *object.Map:
+		if want.Kind() == reflect.Map {
+			mk := want.Key()
+			mv := want.Elem()
+			m := reflect.MakeMapWithSize(want, len(v.Pairs))
+			for k, val := range v.Pairs {
+				gk, err := toGoValue(k, mk)
+				if err != nil {
+					return reflect.Value{}, fmt.Errorf("map key: %w", err)
+				}
+				gv, err := toGoValue(val, mv)
+				if err != nil {
+					return reflect.Value{}, fmt.Errorf("map value: %w", err)
+				}
+				m.SetMapIndex(gk, gv)
+			}
+			return m, nil
+		}
+		if want.Kind() == reflect.Interface {
+			return reflect.ValueOf(v.Pairs), nil
+		}
+		return reflect.Value{}, fmt.Errorf("unsupported map->%s conversion", want.String())
 	case *object.Null:
 		if want.Kind() == reflect.Interface || want.Kind() == reflect.Pointer || want.Kind() == reflect.Slice || want.Kind() == reflect.Map || want.Kind() == reflect.Func {
 			return reflect.Zero(want), nil
@@ -161,6 +217,21 @@ func fromGoValue(v reflect.Value) object.Object {
 		return object.NewBoolean(v.Bool())
 	case reflect.String:
 		return object.NewString(v.String())
+	case reflect.Slice, reflect.Array:
+		n := v.Len()
+		elems := make([]object.Object, n)
+		for i := 0; i < n; i++ {
+			elems[i] = fromGoValue(v.Index(i))
+		}
+		return object.NewArray(elems)
+	case reflect.Map:
+		pairs := make(map[object.Object]object.Object, v.Len())
+		for _, k := range v.MapKeys() {
+			keyObj := fromGoValue(k)
+			valObj := fromGoValue(v.MapIndex(k))
+			pairs[keyObj] = valObj
+		}
+		return object.NewMap(pairs)
 	default:
 		return object.NewString(fmt.Sprintf("%v", v.Interface()))
 	}
