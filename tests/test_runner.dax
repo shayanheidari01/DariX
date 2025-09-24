@@ -1,0 +1,211 @@
+// DariX Test Runner
+// اجراکننده تست‌های DariX
+
+print("🧪 DariX Test Runner")
+print("===================")
+
+var total_tests = 0
+var passed_tests = 0
+var failed_tests = 0
+
+// Test assertion function
+func assert(condition, message) {
+    total_tests = total_tests + 1
+    if (condition) {
+        passed_tests = passed_tests + 1
+        print("✅ PASS:", message)
+    } else {
+        failed_tests = failed_tests + 1
+        print("❌ FAIL:", message)
+    }
+}
+
+// Test equality
+func assert_equal(actual, expected, message) {
+    total_tests = total_tests + 1
+    if (actual == expected) {
+        passed_tests = passed_tests + 1
+        print("✅ PASS:", message)
+    } else {
+        failed_tests = failed_tests + 1
+        print("❌ FAIL:", message, "- Expected:", expected, "Got:", actual)
+    }
+}
+
+// Test suite: Basic operations
+print("\n📊 Testing Basic Operations:")
+assert_equal(2 + 3, 5, "Addition test")
+assert_equal(10 - 4, 6, "Subtraction test")
+assert_equal(3 * 4, 12, "Multiplication test")
+assert_equal(15 / 3, 5, "Division test")
+assert_equal(17 % 5, 2, "Modulus test")
+
+// Test suite: String operations
+print("\n📝 Testing String Operations:")
+assert_equal("Hello" + " " + "World", "Hello World", "String concatenation")
+assert_equal(len("DariX"), 5, "String length")
+assert_equal(str(42), "42", "Integer to string conversion")
+assert_equal(int("123"), 123, "String to integer conversion")
+assert_equal(float("3.14"), 3.14, "String to float conversion")
+
+// Test suite: Array operations
+print("\n📋 Testing Array Operations:")
+var test_arr = [1, 2, 3, 4, 5]
+assert_equal(len(test_arr), 5, "Array length")
+assert_equal(test_arr[0], 1, "Array indexing")
+assert_equal(sum([1, 2, 3, 4, 5]), 15, "Array sum")
+
+var sorted_test = sort([3, 1, 4, 1, 5])
+assert_equal(sorted_test[0], 1, "Array sorting - first element")
+assert_equal(sorted_test[4], 5, "Array sorting - last element")
+
+var reversed_test = reverse([1, 2, 3])
+assert_equal(reversed_test[0], 3, "Array reverse - first element")
+assert_equal(reversed_test[2], 1, "Array reverse - last element")
+
+// Test suite: Map operations
+print("\n🗺️ Testing Map Operations:")
+var test_map = {"name": "Ali", "age": 25, "city": "Tehran"}
+assert_equal(test_map["name"], "Ali", "Map access")
+assert_equal(len(test_map), 3, "Map length")
+
+var map_keys = keys(test_map)
+assert_equal(len(map_keys), 3, "Map keys length")
+
+var map_values = values(test_map)
+assert_equal(len(map_values), 3, "Map values length")
+
+var map_items = items(test_map)
+assert_equal(len(map_items), 3, "Map items length")
+
+// Test suite: Functions
+print("\n⚙️ Testing Functions:")
+func test_function(x, y) {
+    return x * y + 1
+}
+
+assert_equal(test_function(3, 4), 13, "Function call")
+
+// Test recursive function
+func factorial(n) {
+    if (n <= 1) {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+assert_equal(factorial(5), 120, "Recursive function")
+
+// Test suite: Classes
+print("\n🏗️ Testing Classes:")
+class TestClass {
+    func __init__(self, value) {
+        self.value = value
+    }
+    
+    func get_value(self) {
+        return self.value
+    }
+    
+    func double_value(self) {
+        return self.value * 2
+    }
+}
+
+var test_obj = TestClass(42)
+assert_equal(test_obj.get_value(), 42, "Class method call")
+assert_equal(test_obj.double_value(), 84, "Class method calculation")
+
+// Test suite: Control flow
+print("\n🔀 Testing Control Flow:")
+var control_test = 0
+if (5 > 3) {
+    control_test = 1
+} else {
+    control_test = 2
+}
+assert_equal(control_test, 1, "If-else statement")
+
+// Test while loop
+var while_counter = 0
+var while_sum = 0
+while (while_counter < 5) {
+    while_sum = while_sum + while_counter
+    while_counter = while_counter + 1
+}
+assert_equal(while_sum, 10, "While loop")
+
+// Test for loop
+var for_sum = 0
+for (var i = 1; i <= 5; i = i + 1) {
+    for_sum = for_sum + i
+}
+assert_equal(for_sum, 15, "For loop")
+
+// Test suite: Built-in functions
+print("\n🛠️ Testing Built-in Functions:")
+assert_equal(abs(-42), 42, "Absolute value")
+assert_equal(type(42), "INTEGER", "Type checking - integer")
+assert_equal(type("hello"), "STRING", "Type checking - string")
+assert_equal(type(true), "BOOLEAN", "Type checking - boolean")
+
+var range_test = range(5)
+assert_equal(len(range_test), 5, "Range function length")
+assert_equal(range_test[0], 0, "Range function first element")
+assert_equal(range_test[4], 4, "Range function last element")
+
+// Test suite: Exception handling
+print("\n⚠️ Testing Exception Handling:")
+var exception_caught = false
+try {
+    var result = 10 / 0
+} catch (error) {
+    exception_caught = true
+} finally {
+    // Finally block always executes
+}
+assert(exception_caught, "Exception handling")
+
+// Test suite: Advanced features
+print("\n🎯 Testing Advanced Features:")
+
+// Test closures
+func create_multiplier(factor) {
+    func multiply(x) {
+        return x * factor
+    }
+    return multiply
+}
+
+var double = create_multiplier(2)
+var triple = create_multiplier(3)
+
+assert_equal(double(5), 10, "Closure - double")
+assert_equal(triple(4), 12, "Closure - triple")
+
+// Test higher-order functions
+func apply_twice(func_arg, value) {
+    return func_arg(func_arg(value))
+}
+
+func add_one(x) {
+    return x + 1
+}
+
+assert_equal(apply_twice(add_one, 5), 7, "Higher-order function")
+
+// Print test results
+print("\n📊 Test Results:")
+print("===============")
+print("Total tests:", total_tests)
+print("Passed:", passed_tests)
+print("Failed:", failed_tests)
+
+if (failed_tests == 0) {
+    print("🎉 All tests passed!")
+} else {
+    print("⚠️ Some tests failed. Please check the output above.")
+}
+
+var success_rate = (passed_tests * 100) / total_tests
+print("Success rate:", success_rate, "%")

@@ -328,15 +328,25 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emitAt(n, code.OpConstant, idx)
 			return nil
 		}
-		// Handle < by reversing operands and using >
-		if n.Operator == "<" {
+		// Handle <= and >= by reversing operands if needed
+		if n.Operator == "<=" {
 			if err := c.Compile(n.Right); err != nil {
 				return err
 			}
 			if err := c.Compile(n.Left); err != nil {
 				return err
 			}
-			c.emitAt(n, code.OpGreaterThan)
+			c.emitAt(n, code.OpGreaterEqual)
+			return nil
+		}
+		if n.Operator == ">=" {
+			if err := c.Compile(n.Left); err != nil {
+				return err
+			}
+			if err := c.Compile(n.Right); err != nil {
+				return err
+			}
+			c.emitAt(n, code.OpGreaterEqual)
 			return nil
 		}
 		if err := c.Compile(n.Left); err != nil {
@@ -354,12 +364,20 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emitAt(n, code.OpMul)
 		case "/":
 			c.emitAt(n, code.OpDiv)
+		case "%":
+			c.emitAt(n, code.OpMod)
 		case "==":
 			c.emitAt(n, code.OpEqual)
 		case "!=":
 			c.emitAt(n, code.OpNotEqual)
 		case ">":
 			c.emitAt(n, code.OpGreaterThan)
+		case "<":
+			c.emitAt(n, code.OpLessThan)
+		case ">=":
+			c.emitAt(n, code.OpGreaterEqual)
+		case "<=":
+			c.emitAt(n, code.OpLessEqual)
 		default:
 			return fmt.Errorf("unsupported infix operator %s", n.Operator)
 		}

@@ -235,28 +235,19 @@ func (r *REPL) showVariables() {
 	vars := env.GetAll()
 	
 	if len(vars) == 0 {
-		fmt.Fprintln(r.output, "No variables defined")
+		fmt.Fprintln(r.output, "📊 No variables defined")
 		return
 	}
 
-	fmt.Fprintln(r.output, "Defined Variables:")
+	fmt.Fprintln(r.output, "📊 Defined Variables:")
 	
 	// Sort variable names for consistent output
-	names := make([]string, 0, len(vars))
-	for name := range vars {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := r.getSortedNames(vars)
 
 	for _, name := range names {
 		obj := vars[name]
 		typeStr := string(obj.Type())
-		value := obj.Inspect()
-		
-		// Truncate long values
-		if len(value) > 50 {
-			value = value[:47] + "..."
-		}
+		value := r.truncateValue(obj.Inspect())
 		
 		fmt.Fprintf(r.output, "  %s: %s = %s\n", name, typeStr, value)
 	}
@@ -267,33 +258,21 @@ func (r *REPL) showFunctions() {
 	env := r.interpreter.GetEnvironment()
 	vars := env.GetAll()
 	
-	functions := make(map[string]*object.Function)
-	for name, obj := range vars {
-		if fn, ok := obj.(*object.Function); ok {
-			functions[name] = fn
-		}
-	}
+	functions := r.extractFunctions(vars)
 
 	if len(functions) == 0 {
-		fmt.Fprintln(r.output, "No functions defined")
+		fmt.Fprintln(r.output, "🔧 No functions defined")
 		return
 	}
 
-	fmt.Fprintln(r.output, "Defined Functions:")
+	fmt.Fprintln(r.output, "🔧 Defined Functions:")
 	
 	// Sort function names
-	names := make([]string, 0, len(functions))
-	for name := range functions {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := r.getSortedFunctionNames(functions)
 
 	for _, name := range names {
 		fn := functions[name]
-		params := make([]string, len(fn.Parameters))
-		for i, param := range fn.Parameters {
-			params[i] = param.Value
-		}
+		params := r.getFunctionParams(fn)
 		fmt.Fprintf(r.output, "  %s(%s)\n", name, strings.Join(params, ", "))
 	}
 }
@@ -336,13 +315,9 @@ func (r *REPL) evaluateInput(input string) {
 
 // executeCode executes DariX code with the selected backend
 func (r *REPL) executeCode(code string) object.Object {
-	l := lexer.NewWithFile(code, "<repl>")
-	p := parser.New(l)
-	p.SetReplMode(true)
-	program := p.ParseProgram()
-
-	if len(p.Errors()) != 0 {
-		for _, msg := range p.Errors() {
+	program, errors := r.parseCodeForREPL(code)
+	if errors != nil {
+		for _, msg := range errors {
 			if !strings.Contains(msg, "warning: missing closing") {
 				fmt.Fprintf(r.output, "Parse error: %s\n", msg)
 			}
@@ -353,10 +328,74 @@ func (r *REPL) executeCode(code string) object.Object {
 	return r.executeProgram(program)
 }
 
+// parseCodeForREPL creates a lexer and parser for REPL mode
+func (r *REPL) parseCodeForREPL(code string) (*ast.Program, []string) {
+	l := lexer.NewWithFile(code, "<repl>")
+	p := parser.New(l)
+	p.SetReplMode(true)
+	program := p.ParseProgram()
+	
+	if len(p.Errors()) != 0 {
+		return nil, p.Errors()
+	}
+	
+	return program, nil
+}
+
 // executeProgram executes an AST program using the selected backend
 // In REPL mode, we always use the interpreter to maintain state between evaluations
 func (r *REPL) executeProgram(program *ast.Program) object.Object {
 	// For REPL, always use interpreter to maintain variable state
 	// The VM doesn't share state with the interpreter, so variables would be lost
 	return r.interpreter.Interpret(program)
+}
+
+// Helper functions to reduce code duplication
+
+// getSortedNames returns sorted names from a map of objects
+func (r *REPL) getSortedNames(vars map[string]object.Object) []string {
+	names := make([]string, 0, len(vars))
+	for name := range vars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// truncateValue truncates long values for display
+func (r *REPL) truncateValue(value string) string {
+	if len(value) > 50 {
+		return value[:47] + "..."
+	}
+	return value
+}
+
+// extractFunctions extracts function objects from variables
+func (r *REPL) extractFunctions(vars map[string]object.Object) map[string]*object.Function {
+	functions := make(map[string]*object.Function)
+	for name, obj := range vars {
+		if fn, ok := obj.(*object.Function); ok {
+			functions[name] = fn
+		}
+	}
+	return functions
+}
+
+// getSortedFunctionNames returns sorted function names
+func (r *REPL) getSortedFunctionNames(functions map[string]*object.Function) []string {
+	names := make([]string, 0, len(functions))
+	for name := range functions {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// getFunctionParams extracts parameter names from a function
+func (r *REPL) getFunctionParams(fn *object.Function) []string {
+	params := make([]string, len(fn.Parameters))
+	for i, param := range fn.Parameters {
+		params[i] = param.Value
+	}
+	return params
 }

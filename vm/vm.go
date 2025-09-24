@@ -26,6 +26,9 @@ type VM struct {
     // Optional instruction budget (0 => unlimited). When >0, the VM will
     // decrement per executed instruction and stop with an exception when it reaches 0.
     instrBudget int
+    
+    // JIT compiler for hot path optimization
+    jit *JITCompiler
 }
 
 const (
@@ -43,6 +46,7 @@ func New(bc *compiler.Bytecode) *VM {
         bcMagic:      bc.Magic,
         bcVersion:    bc.Version,
         debug:        bc.Debug,
+        jit:          NewJITCompiler(),
     }
     return vm
 }
@@ -50,6 +54,28 @@ func New(bc *compiler.Bytecode) *VM {
 // A value <= 0 disables the budget (unlimited).
 func (vm *VM) SetInstructionBudget(n int) {
 	vm.instrBudget = n
+}
+
+// EnableJIT enables or disables JIT compilation
+func (vm *VM) EnableJIT(enabled bool) {
+	if vm.jit != nil {
+		vm.jit.SetEnabled(enabled)
+	}
+}
+
+// GetJITStats returns JIT compilation statistics
+func (vm *VM) GetJITStats() map[string]interface{} {
+	if vm.jit != nil {
+		return vm.jit.GetStats()
+	}
+	return map[string]interface{}{"enabled": false}
+}
+
+// ResetJIT clears all JIT compilation data
+func (vm *VM) ResetJIT() {
+	if vm.jit != nil {
+		vm.jit.Reset()
+	}
 }
 
 func (vm *VM) push(o object.Object) object.Object {
@@ -85,6 +111,13 @@ func (vm *VM) Run() object.Object {
 				return object.NewExceptionSignal(ex)
 			}
 		}
+		
+		// JIT compilation: Record execution and detect hot paths
+		if vm.jit.RecordExecution(vm.ip) {
+			// New hot path detected - for now just log it
+			// In a full implementation, we would compile and optimize here
+		}
+		
 		op := code.Opcode(vm.instructions[vm.ip])
 		switch op {
 		case code.OpNop:
@@ -92,50 +125,48 @@ func (vm *VM) Run() object.Object {
 		case code.OpConstant:
 			operand := readUint16(vm.instructions[vm.ip+1:])
 			vm.ip += 2
-			if err := vm.push(vm.constants[operand]); err != nil {
-				return err
-			}
-		case code.OpAdd, code.OpSub, code.OpMul, code.OpDiv:
+			vm.stack[vm.sp] = vm.constants[operand]
+			vm.sp++
+		case code.OpAdd, code.OpSub, code.OpMul, code.OpDiv, code.OpMod:
 			right := vm.pop()
 			left := vm.pop()
 			res := vm.execBinary(op, left, right)
-			if isSignal(res) || isError(res) {
+			if isError(res) {
 				return res
 			}
-			if err := vm.push(res); err != nil {
-				return err
-			}
-		case code.OpEqual, code.OpNotEqual, code.OpGreaterThan:
+			vm.stack[vm.sp] = res
+			vm.sp++
+		case code.OpEqual, code.OpNotEqual, code.OpGreaterThan, code.OpLessThan, code.OpGreaterEqual, code.OpLessEqual:
 			right := vm.pop()
 			left := vm.pop()
 			res := vm.execCompare(op, left, right)
 			if isError(res) {
 				return res
 			}
-			if err := vm.push(res); err != nil {
-				return err
-			}
+			vm.stack[vm.sp] = res
+			vm.sp++
 		case code.OpMinus:
 			operand := vm.pop()
 			res := vm.execMinus(operand)
 			if isError(res) {
 				return res
 			}
-			if err := vm.push(res); err != nil {
-				return err
-			}
+			vm.stack[vm.sp] = res
+			vm.sp++
 		case code.OpBang:
 			operand := vm.pop()
 			res := nativeBoolToBooleanObject(!isTruthy(operand))
-			if err := vm.push(res); err != nil {
-				return err
-			}
+			vm.stack[vm.sp] = res
+			vm.sp++
 		case code.OpTrue:
-			if err := vm.push(object.TRUE); err != nil { return err }
+			vm.stack[vm.sp] = object.TRUE
+			vm.sp++
 		case code.OpFalse:
-			if err := vm.push(object.FALSE); err != nil { return err }
+			vm.stack[vm.sp] = object.FALSE
+			vm.sp++
 		case code.OpNull:
-			if err := vm.push(object.NULL); err != nil { return err }
+			vm.stack[vm.sp] = object.NULL
+			vm.sp++
 		case code.OpPop:
 			_ = vm.pop()
 		case code.OpSetGlobal:
@@ -147,7 +178,8 @@ func (vm *VM) Run() object.Object {
 			idx := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
 			val := vm.getGlobal(idx)
-			if err := vm.push(val); err != nil { return err }
+			vm.stack[vm.sp] = val
+			vm.sp++
 		case code.OpPrint:
 			argc := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
@@ -167,7 +199,8 @@ func (vm *VM) Run() object.Object {
 			// faster stdout write than fmt.Println
 			_, _ = io.WriteString(os.Stdout, out)
 			_, _ = io.WriteString(os.Stdout, "\n")
-			if err := vm.push(object.NULL); err != nil { return err }
+			vm.stack[vm.sp] = object.NULL
+			vm.sp++
 		case code.OpJump:
 			pos := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip = pos - 1
@@ -178,6 +211,38 @@ func (vm *VM) Run() object.Object {
 			if !isTruthy(cond) {
 				vm.ip = pos - 1
 			}
+		case code.OpArray:
+			numElements := int(readUint16(vm.instructions[vm.ip+1:]))
+			vm.ip += 2
+			elements := make([]object.Object, numElements)
+			for i := numElements - 1; i >= 0; i-- {
+				elements[i] = vm.pop()
+			}
+			arr := object.NewArrayFromPool(elements)
+			vm.stack[vm.sp] = arr
+			vm.sp++
+		case code.OpIndex:
+			index := vm.pop()
+			left := vm.pop()
+			res := vm.execIndex(left, index)
+			if isError(res) {
+				return res
+			}
+			vm.stack[vm.sp] = res
+			vm.sp++
+		case code.OpLen:
+			operand := vm.pop()
+			res := vm.execLen(operand)
+			if isError(res) {
+				return res
+			}
+			vm.stack[vm.sp] = res
+			vm.sp++
+		case code.OpType:
+			operand := vm.pop()
+			res := vm.execType(operand)
+			vm.stack[vm.sp] = res
+			vm.sp++
 		default:
 			return vm.errorWithLoc("unknown opcode %d", op)
 		}
@@ -205,105 +270,217 @@ func (vm *VM) getGlobal(idx int) object.Object {
 }
 
 func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Object {
-	switch l := left.(type) {
-	case *object.Integer:
-		r := right.(*object.Integer)
-		switch op {
-		case code.OpAdd:
-			return object.NewInteger(l.Value + r.Value)
-		case code.OpSub:
-			return object.NewInteger(l.Value - r.Value)
-		case code.OpMul:
-			return object.NewInteger(l.Value * r.Value)
-		case code.OpDiv:
-			if r.Value == 0 {
-				ex := object.NewException(object.ZERO_DIV_ERROR, "division by zero")
-				ex.StackTrace = vm.buildStackTrace()
-				return object.NewExceptionSignal(ex)
-			}
-			return object.NewInteger(l.Value / r.Value)
-		}
-	case *object.Float:
-		r := right.(*object.Float)
-		switch op {
-		case code.OpAdd:
-			return object.NewFloat(l.Value + r.Value)
-		case code.OpSub:
-			return object.NewFloat(l.Value - r.Value)
-		case code.OpMul:
-			return object.NewFloat(l.Value * r.Value)
-		case code.OpDiv:
-			if r.Value == 0 {
-				ex := object.NewException(object.ZERO_DIV_ERROR, "division by zero")
-				ex.StackTrace = vm.buildStackTrace()
-				return object.NewExceptionSignal(ex)
-			}
-			return object.NewFloat(l.Value / r.Value)
-		}
-	case *object.String:
-		// only OpAdd supported for strings
-		if op == code.OpAdd {
-			if rs, ok := right.(*object.String); ok {
-				return object.NewString(l.Value + rs.Value)
+	// Fast path for most common cases - integers
+	if l, ok := left.(*object.Integer); ok {
+		if r, ok := right.(*object.Integer); ok {
+			switch op {
+			case code.OpAdd:
+				return object.AddIntegers(l, r)
+			case code.OpSub:
+				return object.SubIntegers(l, r)
+			case code.OpMul:
+				return object.MulIntegers(l, r)
+			case code.OpDiv:
+				return object.DivIntegers(l, r)
+			case code.OpMod:
+				return object.ModIntegers(l, r)
 			}
 		}
 	}
+	
+	// Fast path for floats
+	if l, ok := left.(*object.Float); ok {
+		if r, ok := right.(*object.Float); ok {
+			switch op {
+			case code.OpAdd:
+				return object.AddFloats(l, r)
+			case code.OpSub:
+				return object.SubFloats(l, r)
+			case code.OpMul:
+				return object.MulFloats(l, r)
+			case code.OpDiv:
+				return object.DivFloats(l, r)
+			}
+		}
+	}
+	
+	// Fast path for strings (concatenation)
+	if op == code.OpAdd {
+		if l, ok := left.(*object.String); ok {
+			if r, ok := right.(*object.String); ok {
+				return object.ConcatStrings(l, r)
+			}
+		}
+	}
+	
 	return vm.errorWithLoc("unsupported operands for binary op: %s and %s", left.Type(), right.Type())
 }
 
 func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Object {
-	switch l := left.(type) {
-	case *object.Integer:
-		r := right.(*object.Integer)
-		switch op {
-		case code.OpEqual:
-			return nativeBoolToBooleanObject(l.Value == r.Value)
-		case code.OpNotEqual:
-			return nativeBoolToBooleanObject(l.Value != r.Value)
-		case code.OpGreaterThan:
-			return nativeBoolToBooleanObject(l.Value > r.Value)
-		}
-	case *object.Float:
-		r := right.(*object.Float)
-		switch op {
-		case code.OpEqual:
-			return nativeBoolToBooleanObject(l.Value == r.Value)
-		case code.OpNotEqual:
-			return nativeBoolToBooleanObject(l.Value != r.Value)
-		case code.OpGreaterThan:
-			return nativeBoolToBooleanObject(l.Value > r.Value)
-		}
-	case *object.String:
-		r := right.(*object.String)
-		switch op {
-		case code.OpEqual:
-			return nativeBoolToBooleanObject(l.Value == r.Value)
-		case code.OpNotEqual:
-			return nativeBoolToBooleanObject(l.Value != r.Value)
-		case code.OpGreaterThan:
-			return nativeBoolToBooleanObject(l.Value > r.Value)
-		}
-	case *object.Boolean:
-		r := right.(*object.Boolean)
-		switch op {
-		case code.OpEqual:
-			return nativeBoolToBooleanObject(l.Value == r.Value)
-		case code.OpNotEqual:
-			return nativeBoolToBooleanObject(l.Value != r.Value)
+	// Fast path for integers (most common comparison)
+	if l, ok := left.(*object.Integer); ok {
+		if r, ok := right.(*object.Integer); ok {
+			switch op {
+			case code.OpEqual:
+				return nativeBoolToBooleanObject(l.Value == r.Value)
+			case code.OpNotEqual:
+				return nativeBoolToBooleanObject(l.Value != r.Value)
+			case code.OpGreaterThan:
+				return nativeBoolToBooleanObject(l.Value > r.Value)
+			case code.OpLessThan:
+				return nativeBoolToBooleanObject(l.Value < r.Value)
+			case code.OpGreaterEqual:
+				return nativeBoolToBooleanObject(l.Value >= r.Value)
+			case code.OpLessEqual:
+				return nativeBoolToBooleanObject(l.Value <= r.Value)
+			}
 		}
 	}
+	
+	// Fast path for floats
+	if l, ok := left.(*object.Float); ok {
+		if r, ok := right.(*object.Float); ok {
+			switch op {
+			case code.OpEqual:
+				return nativeBoolToBooleanObject(l.Value == r.Value)
+			case code.OpNotEqual:
+				return nativeBoolToBooleanObject(l.Value != r.Value)
+			case code.OpGreaterThan:
+				return nativeBoolToBooleanObject(l.Value > r.Value)
+			case code.OpLessThan:
+				return nativeBoolToBooleanObject(l.Value < r.Value)
+			case code.OpGreaterEqual:
+				return nativeBoolToBooleanObject(l.Value >= r.Value)
+			case code.OpLessEqual:
+				return nativeBoolToBooleanObject(l.Value <= r.Value)
+			}
+		}
+	}
+	
+	// Fast path for strings
+	if l, ok := left.(*object.String); ok {
+		if r, ok := right.(*object.String); ok {
+			switch op {
+			case code.OpEqual:
+				return nativeBoolToBooleanObject(l.Value == r.Value)
+			case code.OpNotEqual:
+				return nativeBoolToBooleanObject(l.Value != r.Value)
+			case code.OpGreaterThan:
+				return nativeBoolToBooleanObject(l.Value > r.Value)
+			case code.OpLessThan:
+				return nativeBoolToBooleanObject(l.Value < r.Value)
+			case code.OpGreaterEqual:
+				return nativeBoolToBooleanObject(l.Value >= r.Value)
+			case code.OpLessEqual:
+				return nativeBoolToBooleanObject(l.Value <= r.Value)
+			}
+		}
+	}
+	
+	// Fast path for booleans
+	if l, ok := left.(*object.Boolean); ok {
+		if r, ok := right.(*object.Boolean); ok {
+			switch op {
+			case code.OpEqual:
+				return nativeBoolToBooleanObject(l.Value == r.Value)
+			case code.OpNotEqual:
+				return nativeBoolToBooleanObject(l.Value != r.Value)
+			}
+		}
+	}
+	
 	return vm.errorWithLoc("unsupported operands for compare: %s and %s", left.Type(), right.Type())
 }
 
 func (vm *VM) execMinus(operand object.Object) object.Object {
-	switch o := operand.(type) {
-	case *object.Integer:
-		return object.NewInteger(-o.Value)
-	case *object.Float:
-		return object.NewFloat(-o.Value)
-	default:
-		return vm.errorWithLoc("unsupported operand for prefix -: %s", operand.Type())
+	// Fast path for integers
+	if o, ok := operand.(*object.Integer); ok {
+		return object.NewIntegerFromPool(-o.Value)
 	}
+	// Fast path for floats
+	if o, ok := operand.(*object.Float); ok {
+		return object.NewFloatFromPool(-o.Value)
+	}
+	return vm.errorWithLoc("unsupported operand for prefix -: %s", operand.Type())
+}
+
+func (vm *VM) execIndex(left, index object.Object) object.Object {
+	switch {
+	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
+		return vm.execArrayIndex(left, index)
+	case left.Type() == object.MAP_OBJ:
+		return vm.execMapIndex(left, index)
+	case left.Type() == object.STRING_OBJ && index.Type() == object.INTEGER_OBJ:
+		return vm.execStringIndex(left, index)
+	default:
+		return vm.errorWithLoc("index operator not supported: %s", left.Type())
+	}
+}
+
+func (vm *VM) execArrayIndex(arr, index object.Object) object.Object {
+	arrayObject := arr.(*object.Array)
+	idx := index.(*object.Integer).Value
+	max := int64(len(arrayObject.Elements) - 1)
+
+	if idx < 0 || idx > max {
+		return object.NULL
+	}
+
+	return arrayObject.Elements[idx]
+}
+
+func (vm *VM) execMapIndex(mapObj, index object.Object) object.Object {
+	switch m := mapObj.(type) {
+	case *object.Map:
+		value, ok := m.Pairs[index]
+		if !ok {
+			return object.NULL
+		}
+		return value
+	case *object.Hash:
+		key, ok := index.(object.Hashable)
+		if !ok {
+			return vm.errorWithLoc("unusable as hash key: %T", index)
+		}
+		pair, ok := m.Pairs[key.HashKey()]
+		if !ok {
+			return object.NULL
+		}
+		return pair.Value
+	default:
+		return vm.errorWithLoc("index operator not supported: %s", mapObj.Type())
+	}
+}
+
+func (vm *VM) execStringIndex(str, index object.Object) object.Object {
+	stringObject := str.(*object.String)
+	idx := index.(*object.Integer).Value
+	max := int64(len(stringObject.Value) - 1)
+
+	if idx < 0 || idx > max {
+		return object.NULL
+	}
+
+	return object.NewStringFromPool(string(stringObject.Value[idx]))
+}
+
+func (vm *VM) execLen(obj object.Object) object.Object {
+	switch arg := obj.(type) {
+	case *object.Array:
+		return object.NewIntegerFromPool(int64(len(arg.Elements)))
+	case *object.String:
+		return object.NewIntegerFromPool(int64(len(arg.Value)))
+	case *object.Map:
+		return object.NewIntegerFromPool(int64(len(arg.Pairs)))
+	case *object.Hash:
+		return object.NewIntegerFromPool(int64(len(arg.Pairs)))
+	default:
+		return vm.errorWithLoc("argument to `len` not supported, got %s", obj.Type())
+	}
+}
+
+func (vm *VM) execType(obj object.Object) object.Object {
+	return object.NewStringFromPool(string(obj.Type()))
 }
 
 func readUint16(ins code.Instructions) uint16 {

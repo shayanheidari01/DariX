@@ -2,8 +2,9 @@ name: Release DariX
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*.*.*'  # Only trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual triggering
 
 permissions:
   contents: write
@@ -36,7 +37,12 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/')
+          # Extract version from git tag, fallback to version.go
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/' || echo "dev")
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Build binary
@@ -63,7 +69,12 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/')
+          # Extract version from git tag, fallback to version.go
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/' || echo "dev")
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
@@ -74,7 +85,7 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: auto-${{ github.sha }}
+          tag_name: ${{ github.ref_name }}
           name: DariX ${{ steps.version.outputs.version }}
           body: |
             ## DariX ${{ steps.version.outputs.version }} Release
@@ -105,13 +116,3 @@ jobs:
 
             For more information, see the [README](https://github.com/shayanheidari01/darix/blob/main/README.md).
           files: ./artifacts/**/*
-
-      - name: Bump version
-        run: |
-          NEW_VERSION=$(echo ${{ steps.version.outputs.version }} | awk -F. '{print $1"."$2"."($3+1)}')
-          sed -i "s/const Version = \"${{ steps.version.outputs.version }}\"/const Version = \"$NEW_VERSION\"/" internal/version/version.go
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add internal/version/version.go
-          git commit -m "Bump version to $NEW_VERSION [skip ci]"
-          git push

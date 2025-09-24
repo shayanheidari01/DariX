@@ -632,6 +632,102 @@ func (i *Interpreter) initBuiltins() {
 				return object.NewException(object.ZERO_DIV_ERROR, message)
 			},
 		},
+		// Map utility functions
+		"keys": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("keys: expected 1 argument (map), got %d", len(args))
+				}
+				
+				switch obj := args[0].(type) {
+				case *object.Map:
+					keys := make([]object.Object, 0, len(obj.Pairs))
+					for key := range obj.Pairs {
+						keys = append(keys, key)
+					}
+					return object.NewArray(keys)
+				case *object.Hash:
+					keys := make([]object.Object, 0, len(obj.Pairs))
+					for _, pair := range obj.Pairs {
+						keys = append(keys, pair.Key)
+					}
+					return object.NewArray(keys)
+				default:
+					return object.NewError("keys: argument must be a map, got %s", obj.Type())
+				}
+			},
+		},
+		"values": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("values: expected 1 argument (map), got %d", len(args))
+				}
+				
+				switch obj := args[0].(type) {
+				case *object.Map:
+					values := make([]object.Object, 0, len(obj.Pairs))
+					for _, value := range obj.Pairs {
+						values = append(values, value)
+					}
+					return object.NewArray(values)
+				case *object.Hash:
+					values := make([]object.Object, 0, len(obj.Pairs))
+					for _, pair := range obj.Pairs {
+						values = append(values, pair.Value)
+					}
+					return object.NewArray(values)
+				default:
+					return object.NewError("values: argument must be a map, got %s", obj.Type())
+				}
+			},
+		},
+		"items": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("items: expected 1 argument (map), got %d", len(args))
+				}
+				
+				switch obj := args[0].(type) {
+				case *object.Map:
+					items := make([]object.Object, 0, len(obj.Pairs))
+					for key, value := range obj.Pairs {
+						item := []object.Object{key, value}
+						items = append(items, object.NewArray(item))
+					}
+					return object.NewArray(items)
+				case *object.Hash:
+					items := make([]object.Object, 0, len(obj.Pairs))
+					for _, pair := range obj.Pairs {
+						item := []object.Object{pair.Key, pair.Value}
+						items = append(items, object.NewArray(item))
+					}
+					return object.NewArray(items)
+				default:
+					return object.NewError("items: argument must be a map, got %s", obj.Type())
+				}
+			},
+		},
+		// Array utility functions
+		"sort": {
+			Fn: func(args ...object.Object) object.Object {
+				if len(args) != 1 {
+					return object.NewError("sort: expected 1 argument (array), got %d", len(args))
+				}
+				arr, ok := args[0].(*object.Array)
+				if !ok {
+					return object.NewError("sort: argument must be an array, got %s", args[0].Type())
+				}
+
+				elements := make([]object.Object, len(arr.Elements))
+				copy(elements, arr.Elements)
+
+				sort.Slice(elements, func(i, j int) bool {
+					return compareObjects(elements[i], elements[j]) < 0
+				})
+
+				return object.NewArray(elements)
+			},
+		},
 	}
 }
 

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: [1.21, 1.22]
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Build
+      run: go build -v .
+
+    - name: Run Go tests
+      run: go test -v ./...
+
+    - name: Run DariX test suite
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./darix.exe run tests/test_runner.dax
+        else
+          ./darix run tests/test_runner.dax
+        fi
+      shell: bash
+
+    - name: Run comprehensive tests
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./darix.exe run examples/comprehensive_test.dax
+        else
+          ./darix run examples/comprehensive_test.dax
+        fi
+      shell: bash
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: 1.22
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+
+  # Remove build-release job since it conflicts with release.yml
+  # The release.yml workflow handles building and releasing

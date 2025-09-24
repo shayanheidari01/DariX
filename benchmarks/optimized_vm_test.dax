@@ -1,0 +1,79 @@
+// Optimized VM Performance Test
+// Tests the performance improvements from VM optimizations
+
+print("🚀 Optimized VM Performance Test")
+print("=================================")
+
+// Test 1: Integer arithmetic performance
+print("\n📊 Testing optimized integer arithmetic...")
+var start_time = time()
+var sum = 0
+var i = 0
+while (i < 100000) {
+    sum = sum + i * 2 - 1
+    i = i + 1
+}
+var end_time = time()
+print("Sum result:", sum)
+print("Integer arithmetic completed")
+
+// Test 2: Comparison operations
+print("\n📊 Testing optimized comparisons...")
+var count = 0
+i = 0
+while (i < 50000) {
+    if (i > 25000) {
+        if (i < 40000) {
+            if (i >= 30000) {
+                if (i <= 35000) {
+                    count = count + 1
+                }
+            }
+        }
+    }
+    i = i + 1
+}
+print("Comparison count:", count)
+
+// Test 3: String operations
+print("\n📊 Testing optimized string operations...")
+var text = ""
+i = 0
+while (i < 1000) {
+    text = text + "x"
+    i = i + 1
+}
+print("String length:", len(text))
+
+// Test 4: Array operations
+print("\n📊 Testing optimized array operations...")
+var arr = []
+i = 0
+while (i < 5000) {
+    arr = arr + [i]
+    i = i + 1
+}
+print("Array length:", len(arr))
+print("First element:", arr[0])
+print("Last element:", arr[len(arr) - 1])
+
+// Test 5: Mixed operations
+print("\n📊 Testing mixed optimized operations...")
+var result = 0
+i = 0
+while (i < 10000) {
+    var temp = i * 3
+    if (temp > 15000) {
+        temp = temp - 5000
+    }
+    result = result + temp
+    i = i + 1
+}
+print("Mixed operations result:", result)
+
+print("\n✅ Optimized VM performance test completed!")
+print("The VM should now run significantly faster with:")
+print("  • Optimized type checking with fast paths")
+print("  • Reduced function call overhead")
+print("  • Object pooling for memory efficiency")
+print("  • Inline stack operations")

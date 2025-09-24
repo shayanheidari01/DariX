@@ -1,0 +1,44 @@
+// VM Compatible Test
+// تست سازگار با VM
+
+print("🚀 VM Compatible Test")
+print("====================")
+
+// Basic variables
+var x = 42
+var y = 3.14
+var name = "DariX"
+
+print("Integer:", x)
+print("Float:", y)
+print("String:", name)
+
+// Arithmetic
+var sum = x + 10
+var product = x * 2
+print("Sum:", sum)
+print("Product:", product)
+
+// Simple function
+func add(a, b) {
+    return a + b
+}
+
+var result = add(5, 7)
+print("Function result:", result)
+
+// Simple loop
+var i = 1
+while (i <= 3) {
+    print("Count:", i)
+    i = i + 1
+}
+
+// Simple if
+if (x > 40) {
+    print("x is greater than 40")
+} else {
+    print("x is not greater than 40")
+}
+
+print("✅ VM test completed!")

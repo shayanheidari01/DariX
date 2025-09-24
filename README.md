@@ -447,33 +447,52 @@ try {
 
 ### Built-in Functions
 
-DariX comes with a set of built-in functions for common tasks:
+DariX comes with a comprehensive set of built-in functions for common tasks:
 
+#### Core Functions
 *   `print(...args)`: Prints arguments to standard output, separated by spaces, followed by a newline.
 *   `len(obj)`: Returns the length of a string, array, or map.
+*   `type(obj)`: Returns the type of an object as a string (e.g., "INTEGER", "STRING").
+*   `input([prompt])`: Reads a line of input from the user. An optional prompt string can be provided.
+
+#### Type Conversion
 *   `str(obj)`: Converts an integer, float, or boolean to its string representation.
 *   `int(obj)`: Converts a string (representing an integer) to an integer.
 *   `float(obj)`: Converts a string (representing a float) to a float.
 *   `bool(obj)`: Converts an object to a boolean (following truthiness rules).
-*   `type(obj)`: Returns the type of an object as a string (e.g., "INTEGER", "STRING").
-*   `input([prompt])`: Reads a line of input from the user. An optional prompt string can be provided.
-*   `range([start,] stop[, step])`: Creates an array of integers. Mimics Python's `range`.
+
+#### Mathematical Functions
 *   `abs(x)`: Returns the absolute value of a number.
 *   `max(...args)`: Returns the maximum value among the provided arguments.
 *   `min(...args)`: Returns the minimum value among the provided arguments.
 *   `sum(array)`: Returns the sum of elements in an array.
+*   `pow(base, exp)`: Calculates `base` raised to the power of `exp`.
+*   `clamp(val, min, max)`: Clamps `val` to be within the range [`min`, `max`].
+
+#### Array Functions
+*   `range([start,] stop[, step])`: Creates an array of integers. Mimics Python's `range`.
 *   `reverse(obj)`: Returns the reverse of a string or array.
-*   `sorted(array)`: Returns a new sorted array.
+*   `sort(array)`: Returns a new sorted array.
+*   `sorted(array)`: Returns a new sorted array (alias for `sort`).
+*   `append(array, ...values)`: Returns a new array with values appended to the end of the original array.
+*   `contains(array, value)`: Checks if an array contains a specific value.
+
+#### Map Functions
+*   `keys(map)`: Returns an array of all keys in a map.
+*   `values(map)`: Returns an array of all values in a map.
+*   `items(map)`: Returns an array of [key, value] pairs from a map.
+
+#### String Functions
 *   `upper(str)`: Converts a string to uppercase.
 *   `lower(str)`: Converts a string to lowercase.
 *   `trim(str)`: Removes leading and trailing whitespace from a string.
-*   `append(array, ...values)`: Returns a new array with values appended to the end of the original array.
-*   `contains(array, value)`: Checks if an array contains a specific value.
-*   `pow(base, exp)`: Calculates `base` raised to the power of `exp`.
-*   `clamp(val, min, max)`: Clamps `val` to be within the range [`min`, `max`].
+
+#### Utility Functions
 *   `now()`: Returns the current date and time as a string (RFC3339 format).
 *   `timestamp()`: Returns the current Unix timestamp as an integer.
 *   `exit([code])`: Terminates the program immediately. An optional integer exit code can be provided.
+
+#### Exception Functions
 *   `Exception([type,] message)`: Creates a new exception object.
 *   `ValueError(message)`: Creates a ValueError exception.
 *   `TypeError(message)`: Creates a TypeError exception.
@@ -481,6 +500,91 @@ DariX comes with a set of built-in functions for common tasks:
 *   `IndexError(message)`: Creates an IndexError exception.
 *   `KeyError(message)`: Creates a KeyError exception.
 *   `ZeroDivisionError(message)`: Creates a ZeroDivisionError exception.
+
+## Building and Testing
+
+### Quick Build
+
+```bash
+# Build for current platform
+go build -o darix .
+
+# Or use the build script
+chmod +x build.sh
+./build.sh
+```
+
+### Using Makefile
+
+```bash
+# Build and test
+make all
+
+# Build for current platform
+make build
+
+# Build for all platforms
+make build-all
+
+# Run tests
+make test
+
+# Run comprehensive tests
+make test-comprehensive
+
+# Start REPL
+make repl
+
+# Clean build artifacts
+make clean
+
+# Show all available targets
+make help
+```
+
+### Project Structure
+
+```
+DariX/
+├── ast/                    # Abstract Syntax Tree definitions
+├── code/                   # Bytecode instruction definitions
+├── compiler/               # Bytecode compiler
+├── examples/               # Example DariX programs
+│   ├── comprehensive_test.dax
+│   ├── hello_world.dax
+│   └── vm_basic_test.dax
+├── internal/               # Internal packages
+│   ├── native/            # Native module system
+│   └── version/           # Version information
+├── interpreter/            # Tree-walking interpreter
+├── lexer/                  # Lexical analyzer
+├── object/                 # Object system and built-ins
+├── parser/                 # Parser implementation
+├── repl/                   # Enhanced REPL
+├── tests/                  # Test suite
+│   └── test_runner.dax
+├── token/                  # Token definitions
+├── vm/                     # Bytecode virtual machine
+├── build.sh               # Build script
+├── Makefile               # Build automation
+└── main.go                # Main entry point
+```
+
+### Running Tests
+
+DariX includes a comprehensive test suite:
+
+```bash
+# Run the test suite
+./darix run tests/test_runner.dax
+
+# Run comprehensive feature tests
+./darix run examples/comprehensive_test.dax
+
+# Or use make
+make test
+make test-comprehensive
+```
 
 ## Contributing
 

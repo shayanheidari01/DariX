@@ -1,0 +1,3 @@
+// Minimal VM Test
+var x = 42
+print(x)

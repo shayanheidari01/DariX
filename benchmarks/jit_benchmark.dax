@@ -1,0 +1,84 @@
+// JIT Compilation Benchmark
+// Tests hot path detection and JIT compilation performance
+
+print("🔥 JIT Compilation Benchmark")
+print("============================")
+
+// Test 1: Hot loop - should trigger JIT compilation
+print("\n🔄 Testing hot loop (should trigger JIT)...")
+var sum = 0
+var i = 0
+
+// This loop will execute many times and should become a hot path
+while (i < 1000) {
+    sum = sum + i * 2
+    sum = sum - 1
+    i = i + 1
+}
+print("Hot loop result:", sum)
+
+// Test 2: Nested hot loops
+print("\n🔥 Testing nested hot loops...")
+var nested_sum = 0
+var outer = 0
+while (outer < 200) {
+    var inner = 0
+    while (inner < 200) {
+        nested_sum = nested_sum + outer * inner
+        nested_sum = nested_sum + 1
+        inner = inner + 1
+    }
+    outer = outer + 1
+}
+print("Nested hot loops result:", nested_sum)
+
+// Test 3: Arithmetic intensive loop
+print("\n🧮 Testing arithmetic intensive loop...")
+var calc_result = 0
+i = 0
+while (i < 500) {
+    var temp = i * 3
+    temp = temp + 5
+    temp = temp * 2
+    temp = temp - 1
+    calc_result = calc_result + temp
+    i = i + 1
+}
+print("Arithmetic intensive result:", calc_result)
+
+// Test 4: Comparison heavy loop
+print("\n📊 Testing comparison heavy loop...")
+var comp_count = 0
+i = 0
+while (i < 800) {
+    if (i > 100) {
+        if (i < 700) {
+            if (i > 200) {
+                if (i < 600) {
+                    comp_count = comp_count + 1
+                }
+            }
+        }
+    }
+    i = i + 1
+}
+print("Comparison heavy result:", comp_count)
+
+// Test 5: Mixed operations hot path
+print("\n🔀 Testing mixed operations...")
+var mixed_result = 0
+i = 0
+while (i < 600) {
+    var val = i + 10
+    if (val > 50) {
+        val = val * 2
+    }
+    val = val - 5
+    mixed_result = mixed_result + val
+    i = i + 1
+}
+print("Mixed operations result:", mixed_result)
+
+print("\n✅ JIT benchmark completed!")
+print("Hot paths should have been detected and compiled.")
+print("Run with JIT disabled to compare performance:")

@@ -1,0 +1,3 @@
+print("Hello, DariX!")
+var x = 42
+print(x)

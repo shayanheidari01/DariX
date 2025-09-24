@@ -22,9 +22,13 @@ const (
 	OpSub
 	OpMul
 	OpDiv
+	OpMod          // Modulus operation
 	OpEqual
 	OpNotEqual
 	OpGreaterThan
+	OpLessThan     // Less than comparison
+	OpGreaterEqual // Greater than or equal
+	OpLessEqual    // Less than or equal
 	OpMinus
 	OpBang
 	OpTrue
@@ -37,6 +41,15 @@ const (
 	OpGetGlobal
 	OpPrint
 	OpNop
+	// Array operations
+	OpArray        // Create array
+	OpIndex        // Array/Map indexing
+	OpSetIndex     // Array/Map assignment
+	// String operations
+	OpStringConcat // Optimized string concatenation
+	// Built-in function calls
+	OpLen          // len() function
+	OpType         // type() function
 )
 
 var definitions = map[Opcode]*Definition{
@@ -45,9 +58,13 @@ var definitions = map[Opcode]*Definition{
 	OpSub:            {Name: "OpSub", OperandWidths: []int{}},
 	OpMul:            {Name: "OpMul", OperandWidths: []int{}},
 	OpDiv:            {Name: "OpDiv", OperandWidths: []int{}},
+	OpMod:            {Name: "OpMod", OperandWidths: []int{}},
 	OpEqual:          {Name: "OpEqual", OperandWidths: []int{}},
 	OpNotEqual:       {Name: "OpNotEqual", OperandWidths: []int{}},
 	OpGreaterThan:    {Name: "OpGreaterThan", OperandWidths: []int{}},
+	OpLessThan:       {Name: "OpLessThan", OperandWidths: []int{}},
+	OpGreaterEqual:   {Name: "OpGreaterEqual", OperandWidths: []int{}},
+	OpLessEqual:      {Name: "OpLessEqual", OperandWidths: []int{}},
 	OpMinus:          {Name: "OpMinus", OperandWidths: []int{}},
 	OpBang:           {Name: "OpBang", OperandWidths: []int{}},
 	OpTrue:           {Name: "OpTrue", OperandWidths: []int{}},
@@ -60,6 +77,13 @@ var definitions = map[Opcode]*Definition{
 	OpGetGlobal:      {Name: "OpGetGlobal", OperandWidths: []int{2}},
 	OpPrint:          {Name: "OpPrint", OperandWidths: []int{2}},
 	OpNop:            {Name: "OpNop", OperandWidths: []int{}},
+	// New optimized instructions
+	OpArray:          {Name: "OpArray", OperandWidths: []int{2}},        // number of elements
+	OpIndex:          {Name: "OpIndex", OperandWidths: []int{}},         // array[index]
+	OpSetIndex:       {Name: "OpSetIndex", OperandWidths: []int{}},      // array[index] = value
+	OpStringConcat:   {Name: "OpStringConcat", OperandWidths: []int{2}}, // number of strings
+	OpLen:            {Name: "OpLen", OperandWidths: []int{}},           // len(obj)
+	OpType:           {Name: "OpType", OperandWidths: []int{}},          // type(obj)
 }
 
 func Lookup(op Opcode) (*Definition, bool) {

@@ -1,0 +1,39 @@
+// VM vs Interpreter Performance Comparison
+// مقایسه عملکرد VM در مقابل Interpreter
+
+print("⚡ VM vs Interpreter Performance Test")
+print("=====================================")
+
+// Simple arithmetic benchmark
+print("\n🧮 Testing arithmetic operations...")
+var sum = 0
+for (var i = 0; i < 10000; i = i + 1) {
+    sum = sum + i * 2 - 1
+}
+print("Sum result:", sum)
+
+// Simple loop benchmark  
+print("\n🔄 Testing loop performance...")
+var counter = 0
+var limit = 5000
+while (counter < limit) {
+    counter = counter + 1
+}
+print("Counter result:", counter)
+
+// Variable assignment benchmark
+print("\n📊 Testing variable assignments...")
+var a = 1
+var b = 2
+var c = 3
+for (var j = 0; j < 1000; j = j + 1) {
+    a = b + c
+    b = c + a
+    c = a + b
+}
+print("Final values:", a, b, c)
+
+print("\n✅ Performance test completed!")
+print("Run with different backends to compare:")
+print("  darix run --backend=vm benchmarks/vm_vs_interpreter.dax")
+print("  darix run --backend=interp benchmarks/vm_vs_interpreter.dax")

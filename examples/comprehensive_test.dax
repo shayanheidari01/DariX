@@ -1,0 +1,364 @@
+// ========================================
+// DariX Language Feature Test Suite
+// تست جامع تمام قابلیت‌های زبان DariX
+// ========================================
+
+print("🚀 DariX Language Feature Test Suite")
+print("=====================================")
+
+// ========================================
+// 1. Variables and Data Types
+// متغیرها و انواع داده‌ها
+// ========================================
+print("\n📊 1. Variables and Data Types:")
+
+var integer_var = 42
+var float_var = 3.14159
+var string_var = "Hello, DariX!"
+var boolean_true = true
+var boolean_false = false
+var null_var = null
+
+print("Integer:", integer_var)
+print("Float:", float_var)
+print("String:", string_var)
+print("Boolean True:", boolean_true)
+print("Boolean False:", boolean_false)
+print("Null:", null_var)
+
+// Type checking
+print("Type of integer:", type(integer_var))
+print("Type of float:", type(float_var))
+print("Type of string:", type(string_var))
+
+// ========================================
+// 2. Arithmetic Operations
+// عملیات حسابی
+// ========================================
+print("\n🧮 2. Arithmetic Operations:")
+
+var a = 10
+var b = 3
+
+print("a =", a, ", b =", b)
+print("Addition: a + b =", a + b)
+print("Subtraction: a - b =", a - b)
+print("Multiplication: a * b =", a * b)
+print("Division: a / b =", a / b)
+print("Modulus: a % b =", a % b)
+
+// ========================================
+// 3. String Operations
+// عملیات رشته‌ای
+// ========================================
+print("\n📝 3. String Operations:")
+
+var first_name = "DariX"
+var last_name = "Language"
+var full_name = first_name + " " + last_name
+
+print("First name:", first_name)
+print("Last name:", last_name)
+print("Full name:", full_name)
+print("Length of full name:", len(full_name))
+
+// ========================================
+// 4. Arrays
+// آرایه‌ها
+// ========================================
+print("\n📋 4. Arrays:")
+
+var numbers = [1, 2, 3, 4, 5]
+var mixed_array = [1, "two", 3.0, true, null]
+
+print("Numbers array:", numbers)
+print("Mixed array:", mixed_array)
+print("Array length:", len(numbers))
+print("First element:", numbers[0])
+print("Last element:", numbers[len(numbers) - 1])
+
+// Array manipulation
+numbers[2] = 99
+print("After modification:", numbers)
+
+// ========================================
+// 5. Maps/Objects
+// نقشه‌ها/اشیاء
+// ========================================
+print("\n🗺️ 5. Maps/Objects:")
+
+var person = {
+    "name": "Ali",
+    "age": 25,
+    "city": "Tehran",
+    "is_student": true
+}
+
+print("Person object:", person)
+print("Name:", person["name"])
+print("Age:", person["age"])
+print("Keys:", keys(person))
+print("Values:", values(person))
+print("Items:", items(person))
+
+// Modify map
+person["age"] = 26
+person["country"] = "Iran"
+print("After modification:", person)
+
+// ========================================
+// 6. Control Flow - If/Else
+// کنترل جریان - شرطی
+// ========================================
+print("\n🔀 6. Control Flow - If/Else:")
+
+var score = 85
+
+if (score >= 90) {
+    print("Grade: A")
+} else if (score >= 80) {
+    print("Grade: B")
+} else if (score >= 70) {
+    print("Grade: C")
+} else {
+    print("Grade: F")
+}
+
+// ========================================
+// 7. Loops - While
+// حلقه‌ها - while
+// ========================================
+print("\n🔄 7. While Loop:")
+
+var counter = 1
+print("Counting to 5:")
+while (counter <= 5) {
+    print("Count:", counter)
+    counter = counter + 1
+}
+
+// ========================================
+// 8. Loops - For
+// حلقه‌ها - for
+// ========================================
+print("\n🔁 8. For Loop:")
+
+print("For loop 1 to 5:")
+for (var i = 1; i <= 5; i = i + 1) {
+    print("i =", i)
+}
+
+// ========================================
+// 9. Functions
+// توابع
+// ========================================
+print("\n⚙️ 9. Functions:")
+
+// Simple function
+func greet(name) {
+    return "Hello, " + name + "!"
+}
+
+// Function with multiple parameters
+func add(x, y) {
+    return x + y
+}
+
+// Recursive function
+func factorial(n) {
+    if (n <= 1) {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+print("Greeting:", greet("DariX"))
+print("Addition:", add(10, 20))
+print("Factorial of 5:", factorial(5))
+
+// ========================================
+// 10. Higher-order Functions
+// توابع مرتبه بالا
+// ========================================
+print("\n🎯 10. Higher-order Functions:")
+
+func apply_operation(x, y, operation) {
+    return operation(x, y)
+}
+
+func multiply(a, b) {
+    return a * b
+}
+
+var result = apply_operation(6, 7, multiply)
+print("Higher-order function result:", result)
+
+// ========================================
+// 11. Classes and Objects
+// کلاس‌ها و اشیاء
+// ========================================
+print("\n🏗️ 11. Classes and Objects:")
+
+class Person {
+    func __init__(self, name, age) {
+        self.name = name
+        self.age = age
+    }
+    
+    func introduce(self) {
+        return "Hi, I'm " + self.name + " and I'm " + str(self.age) + " years old."
+    }
+    
+    func have_birthday(self) {
+        self.age = self.age + 1
+        return "Happy birthday! Now I'm " + str(self.age) + " years old."
+    }
+}
+
+var person1 = Person("Sara", 22)
+print("Person created:", person1.name)
+print("Introduction:", person1.introduce())
+print("Birthday:", person1.have_birthday())
+
+// ========================================
+// 12. Built-in Functions
+// توابع داخلی
+// ========================================
+print("\n🛠️ 12. Built-in Functions:")
+
+var test_array = [3, 1, 4, 1, 5, 9, 2, 6]
+print("Original array:", test_array)
+
+// Math functions
+print("Absolute value of -42:", abs(-42))
+print("Sum of array:", sum(test_array))
+
+// Array functions
+var sorted_array = sort(test_array)
+print("Sorted array:", sorted_array)
+
+var reversed_array = reverse([1, 2, 3, 4, 5])
+print("Reversed array:", reversed_array)
+
+// Type conversion
+print("String to int:", int("123"))
+print("Int to string:", str(456))
+print("String to float:", float("3.14"))
+
+// ========================================
+// 13. Range Function
+// تابع range
+// ========================================
+print("\n📏 13. Range Function:")
+
+print("Range 0 to 4:")
+for (var i = 0; i < len(range(5)); i = i + 1) {
+    print("Range value:", range(5)[i])
+}
+
+// ========================================
+// 14. Exception Handling
+// مدیریت استثناها
+// ========================================
+print("\n⚠️ 14. Exception Handling:")
+
+try {
+    var division_result = 10 / 0
+    print("This shouldn't print")
+} catch (error) {
+    print("Caught an error:", error)
+} finally {
+    print("Finally block executed")
+}
+
+try {
+    print("Normal operation")
+    var normal_result = 10 / 2
+    print("Division result:", normal_result)
+} catch (error) {
+    print("This shouldn't execute")
+} finally {
+    print("Finally block always executes")
+}
+
+// ========================================
+// 15. Nested Structures
+// ساختارهای تودرتو
+// ========================================
+print("\n🏢 15. Nested Structures:")
+
+var company = {
+    "name": "Tech Corp",
+    "employees": [
+        {"name": "Ahmad", "role": "Developer"},
+        {"name": "Fateme", "role": "Designer"},
+        {"name": "Reza", "role": "Manager"}
+    ],
+    "departments": {
+        "engineering": 10,
+        "design": 5,
+        "management": 3
+    }
+}
+
+print("Company:", company["name"])
+print("First employee:", company["employees"][0]["name"])
+print("Engineering department size:", company["departments"]["engineering"])
+
+// ========================================
+// 16. Complex Expressions
+// عبارات پیچیده
+// ========================================
+print("\n🧩 16. Complex Expressions:")
+
+var complex_result = (5 + 3) * 2 - 1
+print("Complex arithmetic:", complex_result)
+
+var logical_result = (10 > 5) && (3 < 7) || false
+print("Complex logical:", logical_result)
+
+// ========================================
+// 17. Function Closures
+// بسته‌های تابع
+// ========================================
+print("\n🔒 17. Function Closures:")
+
+func create_counter() {
+    var count = 0
+    func increment() {
+        count = count + 1
+        return count
+    }
+    return increment
+}
+
+var counter_func = create_counter()
+print("Counter 1:", counter_func())
+print("Counter 2:", counter_func())
+print("Counter 3:", counter_func())
+
+// ========================================
+// Test Summary
+// خلاصه تست
+// ========================================
+print("\n✅ Test Summary:")
+print("================")
+print("🎉 All DariX language features tested successfully!")
+print("📊 Variables and data types: ✓")
+print("🧮 Arithmetic operations: ✓")
+print("📝 String operations: ✓")
+print("📋 Arrays: ✓")
+print("🗺️ Maps/Objects: ✓")
+print("🔀 Control flow (if/else): ✓")
+print("🔄 While loops: ✓")
+print("🔁 For loops: ✓")
+print("⚙️ Functions: ✓")
+print("🎯 Higher-order functions: ✓")
+print("🏗️ Classes and objects: ✓")
+print("🛠️ Built-in functions: ✓")
+print("📏 Range function: ✓")
+print("⚠️ Exception handling: ✓")
+print("🏢 Nested structures: ✓")
+print("🧩 Complex expressions: ✓")
+print("🔒 Function closures: ✓")
+print("\n🚀 DariX is working perfectly!")

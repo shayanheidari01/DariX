@@ -1,0 +1,89 @@
+// Performance Comparison Benchmark
+// Comprehensive test to measure VM vs Interpreter performance
+
+print("⚡ DariX Performance Comparison Benchmark")
+print("==========================================")
+
+// Fibonacci benchmark - recursive function calls
+func fibonacci(n) {
+    if (n <= 1) {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+print("\n🧮 Testing Fibonacci (recursive calls)...")
+var fib_result = fibonacci(20)
+print("Fibonacci(20):", fib_result)
+
+// Prime number calculation - intensive arithmetic
+func is_prime(n) {
+    if (n < 2) {
+        return false
+    }
+    var i = 2
+    while (i * i <= n) {
+        if (n % i == 0) {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+print("\n🔢 Testing prime number calculation...")
+var prime_count = 0
+var i = 2
+while (i < 1000) {
+    if (is_prime(i)) {
+        prime_count = prime_count + 1
+    }
+    i = i + 1
+}
+print("Primes under 1000:", prime_count)
+
+// Array manipulation - memory intensive
+print("\n📋 Testing array manipulation...")
+var numbers = []
+i = 0
+while (i < 10000) {
+    numbers = numbers + [i * i]
+    i = i + 1
+}
+
+var sum = 0
+i = 0
+while (i < len(numbers)) {
+    sum = sum + numbers[i]
+    i = i + 1
+}
+print("Array sum:", sum)
+
+// String processing - string operations
+print("\n📝 Testing string processing...")
+var text = "Hello"
+i = 0
+while (i < 1000) {
+    text = text + " World"
+    i = i + 1
+}
+print("Final text length:", len(text))
+
+// Nested loops - control flow intensive
+print("\n🔄 Testing nested loops...")
+var nested_sum = 0
+var outer = 0
+while (outer < 100) {
+    var inner = 0
+    while (inner < 100) {
+        nested_sum = nested_sum + outer * inner
+        inner = inner + 1
+    }
+    outer = outer + 1
+}
+print("Nested loops result:", nested_sum)
+
+print("\n✅ Performance comparison completed!")
+print("Run this with both backends to compare:")
+print("  VM:          darix run --backend=vm benchmarks/performance_comparison.dax")
+print("  Interpreter: darix run --backend=interp benchmarks/performance_comparison.dax")

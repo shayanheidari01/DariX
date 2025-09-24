@@ -74,17 +74,10 @@ func main() {
 }
 
 func runCode(code string) {
-    l := lexer.NewWithFile(code, "<eval>")
-    p := parser.New(l)
-    program := p.ParseProgram()
-
-    if len(p.Errors()) != 0 {
-        for _, msg := range p.Errors() {
-            fmt.Printf("Parse error: %s\n", msg)
-        }
-        os.Exit(1)
+    program, errors := parseCode(code, "<eval>")
+    if errors != nil {
+        handleParseErrors(errors)
     }
-
     executeProgram(program, "<eval>", "auto")
 }
 
@@ -103,18 +96,12 @@ func runFileWithOptions(filename, backend string) {
         content, err = os.ReadFile(filename)
     }
     if err != nil {
-        fmt.Printf("Error reading file: %s\n", err)
-        os.Exit(1)
+        handleFileError(err, "reading")
     }
 
-    l := lexer.NewWithFile(string(content), displayName)
-    p := parser.New(l)
-    program := p.ParseProgram()
-    if len(p.Errors()) != 0 {
-        for _, msg := range p.Errors() {
-            fmt.Printf("Parse error: %s\n", msg)
-        }
-        os.Exit(1)
+    program, errors := parseCode(string(content), displayName)
+    if errors != nil {
+        handleParseErrors(errors)
     }
 
     executeProgram(program, displayName, backend)
@@ -132,10 +119,6 @@ func startEnhancedRepl() {
     r.Start()
 }
 
-// Legacy REPL function kept for compatibility
-func startRepl() {
-    startEnhancedRepl()
-}
 
 func printHelp() {
     fmt.Println("DariX command line")
@@ -319,20 +302,41 @@ func handledAsErrorOrException(result object.Object) bool {
 }
 
 // disasmFile compiles a source file and prints its bytecode disassembly
+// parseCode creates a lexer and parser, then parses the code
+func parseCode(code, filename string) (*ast.Program, []string) {
+	l := lexer.NewWithFile(code, filename)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	
+	if len(p.Errors()) != 0 {
+		return nil, p.Errors()
+	}
+	
+	return program, nil
+}
+
+// handleParseErrors prints parse errors and exits
+func handleParseErrors(errors []string) {
+	for _, msg := range errors {
+		fmt.Printf("Parse error: %s\n", msg)
+	}
+	os.Exit(1)
+}
+
+// handleFileError prints file error and exits
+func handleFileError(err error, operation string) {
+	fmt.Printf("Error %s file: %s\n", operation, err)
+	os.Exit(1)
+}
+
 func disasmFile(filename string) {
 	content, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Printf("Error reading file: %s\n", err)
-		os.Exit(1)
+		handleFileError(err, "reading")
 	}
-	l := lexer.NewWithFile(string(content), filename)
-	p := parser.New(l)
-	program := p.ParseProgram()
-	if len(p.Errors()) != 0 {
-		for _, msg := range p.Errors() {
-			fmt.Printf("Parse error: %s\n", msg)
-		}
-		os.Exit(1)
+	program, errors := parseCode(string(content), filename)
+	if errors != nil {
+		handleParseErrors(errors)
 	}
 	comp := compiler.New()
 	if err := comp.Compile(program); err != nil {
