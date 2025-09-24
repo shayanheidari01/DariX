@@ -31,32 +31,32 @@ TEMP_DIR=""
 
 # Print functions
 print_header() {
-    echo -e "${PURPLE}"
-    echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║                    DariX Installation Script                 ║"
-    echo "║                   Programming Language                       ║"
-    echo "╚══════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
+    echo -e "${PURPLE}" >&2
+    echo "╔══════════════════════════════════════════════════════════════╗" >&2
+    echo "║                    DariX Installation Script                 ║" >&2
+    echo "║                   Programming Language                       ║" >&2
+    echo "╚══════════════════════════════════════════════════════════════╝" >&2
+    echo -e "${NC}" >&2
 }
 
 print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
 }
 
 print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 print_step() {
-    echo -e "${CYAN}[STEP]${NC} $1"
+    echo -e "${CYAN}[STEP]${NC} $1" >&2
 }
 
 # Check if running in Termux
@@ -433,24 +433,24 @@ run_test() {
 
 # Print usage information
 print_usage_info() {
-    echo
+    echo >&2
     print_info "DariX has been installed successfully!"
-    echo
-    echo -e "${CYAN}Usage Examples:${NC}"
-    echo "  darix run script.dax          # Run a DariX script"
-    echo "  darix repl                    # Start interactive REPL"
-    echo "  darix eval \"print('Hello')\"   # Evaluate expression"
-    echo "  darix --help                  # Show help"
-    echo
-    echo -e "${CYAN}Getting Started:${NC}"
-    echo "  1. Create a file with .dax extension"
-    echo "  2. Write your DariX code"
-    echo "  3. Run with: darix run yourfile.dax"
-    echo
-    echo -e "${CYAN}Documentation:${NC}"
-    echo "  GitHub: $REPO_URL"
-    echo "  README: $REPO_URL/blob/main/README.md"
-    echo
+    echo >&2
+    echo -e "${CYAN}Usage Examples:${NC}" >&2
+    echo "  darix run script.dax          # Run a DariX script" >&2
+    echo "  darix repl                    # Start interactive REPL" >&2
+    echo "  darix eval \"print('Hello')\"   # Evaluate expression" >&2
+    echo "  darix --help                  # Show help" >&2
+    echo >&2
+    echo -e "${CYAN}Getting Started:${NC}" >&2
+    echo "  1. Create a file with .dax extension" >&2
+    echo "  2. Write your DariX code" >&2
+    echo "  3. Run with: darix run yourfile.dax" >&2
+    echo >&2
+    echo -e "${CYAN}Documentation:${NC}" >&2
+    echo "  GitHub: $REPO_URL" >&2
+    echo "  README: $REPO_URL/blob/main/README.md" >&2
+    echo >&2
 }
 
 # Main installation function
@@ -459,18 +459,18 @@ main() {
     
     # Check if user wants help
     if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
-        echo "DariX Installation Script"
-        echo
-        echo "Usage: $0 [options]"
-        echo
-        echo "Options:"
-        echo "  --help, -h     Show this help message"
-        echo "  --test         Run installation test after install"
-        echo "  --no-verify    Skip installation verification"
-        echo
-        echo "This script automatically detects your platform and architecture"
-        echo "and installs the appropriate DariX binary."
-        echo
+        echo "DariX Installation Script" >&2
+        echo >&2
+        echo "Usage: $0 [options]" >&2
+        echo >&2
+        echo "Options:" >&2
+        echo "  --help, -h     Show this help message" >&2
+        echo "  --test         Run installation test after install" >&2
+        echo "  --no-verify    Skip installation verification" >&2
+        echo >&2
+        echo "This script automatically detects your platform and architecture" >&2
+        echo "and installs the appropriate DariX binary." >&2
+        echo >&2
         exit 0
     fi
     
