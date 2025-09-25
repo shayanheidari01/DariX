@@ -4,6 +4,7 @@ package repl
 
 import (
 	"darix/ast"
+	"darix/internal/version"
 	"darix/interpreter"
 	"darix/lexer"
 	"darix/object"
@@ -126,7 +127,7 @@ func (r *REPL) Start() {
 
 // printWelcome prints the welcome message
 func (r *REPL) printWelcome() {
-	fmt.Fprintln(r.output, "DariX Language REPL - Enhanced Interactive Shell")
+	fmt.Fprintf(r.output, "DariX Language REPL - %s\n", version.String())
 	fmt.Fprintln(r.output, "Type ':help' for commands, 'exit' to quit")
 	fmt.Fprintf(r.output, "Backend: %s\n", r.backend)
 	fmt.Fprintln(r.output, strings.Repeat("-", 50))
