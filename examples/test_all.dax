@@ -108,4 +108,56 @@ try {
     print("caught nonlocal error");
 }
 
+// 10) decorators
+// simple decorator that doubles the result of a unary function
+func double_result(fn) {
+    func wrapper(x) {
+        return fn(x) * 2;
+    }
+    return wrapper;
+}
+
+// parameterized decorator: add k to the result
+func add_k(k) {
+    func decorator(fn) {
+        func wrapper(x) {
+            return fn(x) + k;
+        }
+        return wrapper;
+    }
+    return decorator;
+}
+
+@double_result
+func f1(n) { return n + 1; }
+assert f1(10) == 22, "decorator double_result failed";
+
+@add_k(5)
+func f2(n) { return n * 2; }
+assert f2(10) == 25, "decorator add_k failed";
+
+@double_result
+@add_k(1)
+func f3(n) { return n; }
+// order: add_k applied first, then double_result => (n+1) * 2
+assert f3(10) == 22, "stacked decorators failed";
+
+// class and method decorators
+func add_answer(cls) { cls.answer = 42; return cls; }
+
+func times3(fn) {
+    func w(self, x) { return fn(self, x) * 3; }
+    return w;
+}
+
+@add_answer
+class K {
+    @times3
+    func m(self, x) { return x + 2; }
+}
+
+assert K.answer == 42, "class decorator failed";
+var k = K();
+assert k.m(4) == 18, "method decorator failed";
+
 print("=== test_all.dax done ===");
