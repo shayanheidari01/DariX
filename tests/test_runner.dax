@@ -8,18 +8,6 @@ var total_tests = 0
 var passed_tests = 0
 var failed_tests = 0
 
-// Test assertion function
-func assert(condition, message) {
-    total_tests = total_tests + 1
-    if (condition) {
-        passed_tests = passed_tests + 1
-        print("✅ PASS:", message)
-    } else {
-        failed_tests = failed_tests + 1
-        print("❌ FAIL:", message)
-    }
-}
-
 // Test equality
 func assert_equal(actual, expected, message) {
     total_tests = total_tests + 1
@@ -133,7 +121,7 @@ while (while_counter < 5) {
     while_sum = while_sum + while_counter
     while_counter = while_counter + 1
 }
-assert_equal(while_sum, 10, "While loop")
+assert_equal(while_sum, 10, "while loop")
 
 // Test for loop
 var for_sum = 0
@@ -164,7 +152,7 @@ try {
 } finally {
     // Finally block always executes
 }
-assert(exception_caught, "Exception handling")
+assert_equal(exception_caught, true, "Exception handling")
 
 // Test suite: Advanced features
 print("\n🎯 Testing Advanced Features:")

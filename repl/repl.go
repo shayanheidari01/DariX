@@ -37,28 +37,26 @@ func New(input io.Reader, output io.Writer) *REPL {
 		variables:    make(map[string]object.Object),
 		functions:    make(map[string]*object.Function),
 		backend:      "auto",
-		vmCPUBudget:  0,
 	}
 }
 
 // SetBackend sets the execution backend for the REPL
 func (r *REPL) SetBackend(backend string) {
-	if backend == "auto" || backend == "vm" || backend == "interp" {
-		r.backend = backend
-	}
+    if backend == "auto" || backend == "vm" || backend == "interp" {
+        r.backend = backend
+    }
 }
 
 // SetVMCPUBudget sets the CPU instruction budget for VM execution
 func (r *REPL) SetVMCPUBudget(budget int) {
-	r.vmCPUBudget = budget
+    r.vmCPUBudget = budget
 }
 
 // Start begins the REPL session
 func (r *REPL) Start() {
-	r.printWelcome()
-	r.printHelp()
-
-	var buffer strings.Builder
+    r.printWelcome()
+    
+    var buffer strings.Builder
 	var parenCount, braceCount, bracketCount int
 
 	for {

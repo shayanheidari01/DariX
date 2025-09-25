@@ -5,6 +5,7 @@ package main
 import (
 	"darix/ast"
 	"darix/compiler"
+	"darix/internal/pkgmgr"
 	"darix/internal/native"
 	"darix/internal/version"
 	"darix/interpreter"
@@ -40,6 +41,8 @@ func handleCLI(command string, args []string) {
 		}
 		native.SetPolicy(policy)
 		runFileWithOptions(file, backend)
+	case "get":
+		handleGet(args)
 	case "repl":
 		startEnhancedRepl()
 	case "eval":
@@ -104,15 +107,31 @@ func startEnhancedRepl() {
 }
 
 func printHelp() {
-	fmt.Println("DariX command line")
-	fmt.Println()
-	fmt.Println("Usage:")
-	fmt.Println("  darix run [--backend=auto|vm|interp] [--allow=mod1,mod2|*] [--deny=mod1,mod2] [--fs-root=PATH] [--fs-ro] [--inject=true|false] [--cpu=N] <file.dax|->  Run a script (use '-' for stdin)")
-	fmt.Println("  darix disasm <file.dax>                            Disassemble bytecode")
-	fmt.Println("  darix repl                                         Start interactive REPL")
-	fmt.Println("  darix eval \"<code>\"                                 Evaluate a code snippet")
-	fmt.Println("  darix version                                      Show version info")
-	fmt.Println("  darix help                                         Show this help")
+    fmt.Println("DariX command line")
+    fmt.Println()
+    fmt.Println("Usage:")
+    fmt.Println("  darix run [--backend=auto|vm|interp] [--allow=mod1,mod2|*] [--deny=mod1,mod2] [--fs-root=PATH] [--fs-ro] [--inject=true|false] [--cpu=N] <file.dax|->  Run a script (use '-' for stdin)")
+    fmt.Println("  darix get <owner/repo[@ref]|GitHub URL>            Install a package from GitHub into modules directory")
+    fmt.Println("  darix disasm <file.dax>                            Disassemble bytecode")
+    fmt.Println("  darix repl                                         Start interactive REPL")
+    fmt.Println("  darix eval \"<code>\"                                 Evaluate a code snippet")
+    fmt.Println("  darix version                                      Show version info")
+    fmt.Println("  darix help                                         Show this help")
+}
+
+// handleGet installs a GitHub repository into the modules directory.
+func handleGet(args []string) {
+    if len(args) < 1 {
+        fmt.Println("Usage: darix get <owner/repo[@ref]|GitHub URL>")
+        os.Exit(1)
+    }
+    spec := args[0]
+    path, err := pkgmgr.Install(spec)
+    if err != nil {
+        fmt.Printf("Failed to install %s: %v\n", spec, err)
+        os.Exit(1)
+    }
+    fmt.Printf("Installed %s to %s\n", spec, path)
 }
 
 func parseRunArgs(args []string) (backend, file string, policy *native.CapabilityPolicy, err error) {

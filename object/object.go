@@ -34,6 +34,7 @@ const (
 	CLASS_OBJ        = "CLASS"
 	INSTANCE_OBJ     = "INSTANCE"
 	BOUND_METHOD_OBJ = "BOUND_METHOD"
+	COMPILED_FUNCTION_OBJ = "COMPILED_FUNCTION"
 )
 
 const (
@@ -404,6 +405,25 @@ func (f *Function) Free() {
 	f.Parameters = nil
 	f.Body = nil
 	f.Env = nil
+}
+
+// CompiledFunction represents a function compiled to bytecode for the VM
+type CompiledFunction struct {
+    Instructions []byte // code.Instructions, but avoid import cycle here
+    NumLocals     int
+    NumParameters int
+    Name          string
+}
+
+func (cf *CompiledFunction) Type() ObjectType { return COMPILED_FUNCTION_OBJ }
+func (cf *CompiledFunction) Inspect() string  {
+    if cf.Name != "" {
+        return fmt.Sprintf("<compiled func %s params=%d locals=%d>", cf.Name, cf.NumParameters, cf.NumLocals)
+    }
+    return fmt.Sprintf("<compiled func params=%d locals=%d>", cf.NumParameters, cf.NumLocals)
+}
+func (cf *CompiledFunction) Free() {
+    cf.Instructions = nil
 }
 
 // String

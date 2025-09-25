@@ -50,6 +50,13 @@ const (
 	// Built-in function calls
 	OpLen          // len() function
 	OpType         // type() function
+	// Function call and locals
+	OpCall         // call function with argc
+	OpReturnValue  // return with value
+	OpReturn       // return null
+	OpGetLocal     // load local by index
+	OpSetLocal     // store local by index
+	OpSwap         // swap top two stack values
 )
 
 var definitions = map[Opcode]*Definition{
@@ -84,6 +91,13 @@ var definitions = map[Opcode]*Definition{
 	OpStringConcat:   {Name: "OpStringConcat", OperandWidths: []int{2}}, // number of strings
 	OpLen:            {Name: "OpLen", OperandWidths: []int{}},           // len(obj)
 	OpType:           {Name: "OpType", OperandWidths: []int{}},          // type(obj)
+	// New call/locals opcodes
+	OpCall:          {Name: "OpCall", OperandWidths: []int{2}},         // argc
+	OpReturnValue:   {Name: "OpReturnValue", OperandWidths: []int{}},
+	OpReturn:        {Name: "OpReturn", OperandWidths: []int{}},
+	OpGetLocal:      {Name: "OpGetLocal", OperandWidths: []int{2}},
+	OpSetLocal:      {Name: "OpSetLocal", OperandWidths: []int{2}},
+	OpSwap:          {Name: "OpSwap", OperandWidths: []int{}},
 }
 
 func Lookup(op Opcode) (*Definition, bool) {

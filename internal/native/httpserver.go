@@ -215,7 +215,11 @@ func serverStatic(args ...object.Object) object.Object {
 	
 	// Register static file handler
 	fileServer := http.FileServer(http.Dir(dirPath.Value))
-	server.Mux.Handle(urlPath.Value, http.StripPrefix(urlPath.Value, fileServer))
+	handler := http.StripPrefix(urlPath.Value, fileServer)
+	server.Mux.Handle(urlPath.Value, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("➡️  %s %s\n", r.Method, r.URL.Path)
+		handler.ServeHTTP(w, r)
+	}))
 	
 	return object.TRUE
 }
@@ -466,7 +470,10 @@ func handleRequest(server *HTTPServer, route HTTPRoute, w http.ResponseWriter, r
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
+	// Log dynamic route request
+	fmt.Printf("➡️  %s %s\n", r.Method, r.URL.Path)
+
 	// Create request object for DariX
 	requestObj := make(map[object.Object]object.Object)
 	requestObj[object.NewString("method")] = object.NewString(r.Method)

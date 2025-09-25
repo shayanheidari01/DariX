@@ -5,6 +5,7 @@ package interpreter
 import (
 	"darix/ast"
 	"darix/internal/native"
+	"darix/internal/pkgmgr"
 	"darix/lexer"
 	"darix/object"
 	"darix/parser"
@@ -1390,6 +1391,15 @@ func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object
 		return object.NewError("import: native module %q not found", name)
 	}
 
+	// Resolve GitHub modules if path starts with gh:
+	if strings.HasPrefix(path, "gh:") {
+		resolved, rerr := pkgmgr.ResolveGitHubImport(path)
+		if rerr != nil {
+			return object.NewError("import: cannot resolve %q: %s", path, rerr)
+		}
+		path = resolved
+	}
+
 	// File-based module fallback
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -1412,6 +1422,15 @@ func (i *Interpreter) evalImportStatement(node *ast.ImportStatement, env *object
 	result := modInter.Interpret(program)
 	if isError(result) {
 		return object.NewError("import: runtime error in %q: %s", path, result.(*object.Error).Message)
+	}
+
+	// Inject module symbols into current environment for ease of use
+	if moduleEnv != nil {
+		vars := moduleEnv.GetAll()
+		for name, val := range vars {
+			// Do not overwrite existing names unintentionally; simple policy: overwrite
+			env.Set(name, val)
+		}
 	}
 
 	module := &object.Module{Env: moduleEnv, Path: path}

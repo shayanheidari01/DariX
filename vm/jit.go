@@ -1,4 +1,4 @@
-package vm
+﻿package vm
 
 import (
 	"darix/code"
@@ -153,6 +153,16 @@ func (jit *JITCompiler) ExecuteCompiledPath(hotPath *HotPath, vm *VM) object.Obj
 		return nil
 	}
 	return jit.executeOptimizedBytecode(hotPath, vm)
+}
+
+// GetCompiledPath returns a compiled hot path for the given instruction pointer if available.
+func (jit *JITCompiler) GetCompiledPath(ip int) *HotPath {
+	jit.mutex.RLock()
+	defer jit.mutex.RUnlock()
+	if hp, ok := jit.hotPaths[ip]; ok && hp.IsCompiled() {
+		return hp
+	}
+	return nil
 }
 
 func (jit *JITCompiler) executeOptimizedBytecode(hotPath *HotPath, vm *VM) object.Object {
