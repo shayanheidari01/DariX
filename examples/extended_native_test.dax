@@ -1,0 +1,177 @@
+// Extended Native Libraries Test for DariX
+// Tests: path, random, url, base, collections
+
+import "go:path";
+import "go:random";
+import "go:url";
+import "go:base";
+
+print("🚀 Extended DariX Native Libraries Test");
+print("======================================");
+
+var total_tests = 0;
+var passed_tests = 0;
+
+func test(name, result) {
+    total_tests = total_tests + 1;
+    if (result) {
+        print("✅ " + name);
+        passed_tests = passed_tests + 1;
+    } else {
+        print("❌ " + name);
+    }
+}
+
+print("\n📁 Testing Path Library:");
+print("------------------------");
+
+// Path operations
+var joined = path_join("home", "user", "documents", "file.txt");
+test("path_join", len(joined) > 0);
+
+var split_result = path_split("/home/user/file.txt");
+test("path_split", len(split_result) == 2);
+
+var dir = path_dir("/home/user/file.txt");
+test("path_dir", len(dir) > 0);
+
+var base = path_base("/home/user/file.txt");
+test("path_base", base == "file.txt");
+
+var ext = path_ext("document.pdf");
+test("path_ext", ext == ".pdf");
+
+var cleaned = path_clean("./home/../home/user/./file.txt");
+test("path_clean", len(cleaned) > 0);
+
+var is_abs = path_is_abs("/home/user");
+test("path_is_abs", is_abs);
+
+var normalized = path_normalize("home\\user\\file.txt");
+test("path_normalize", len(normalized) > 0);
+
+print("\n🎲 Testing Random Library:");
+print("--------------------------");
+
+// Random operations
+var rand_int = random_int(100);
+test("random_int", type(rand_int) == "INTEGER");
+
+var rand_float = random_float();
+test("random_float", type(rand_float) == "FLOAT");
+
+var rand_range = random_range(10, 20);
+test("random_range", type(rand_range) == "INTEGER");
+
+var choices = [1, 2, 3, 4, 5];
+var choice = random_choice(choices);
+test("random_choice", type(choice) == "INTEGER");
+
+var shuffled = random_shuffle([1, 2, 3, 4, 5]);
+test("random_shuffle", len(shuffled) == 5);
+
+var sample = random_sample([1, 2, 3, 4, 5], 3);
+test("random_sample", len(sample) == 3);
+
+var rand_bytes = random_bytes(10);
+test("random_bytes", len(rand_bytes) == 10);
+
+var rand_string = random_string(8);
+test("random_string", len(rand_string) == 8);
+
+var uuid = random_uuid();
+test("random_uuid", len(uuid) == 36); // UUID format: 8-4-4-4-12
+
+// Set seed for reproducible results
+random_seed(12345);
+var seeded1 = random_int(1000);
+random_seed(12345);
+var seeded2 = random_int(1000);
+test("random_seed", seeded1 == seeded2);
+
+print("\n🌐 Testing URL Library:");
+print("-----------------------");
+
+// URL parsing
+var test_url = "https://user:pass@example.com:8080/path?query=value#fragment";
+var parsed = url_parse(test_url);
+test("url_parse", type(parsed) == "MAP");
+
+// URL encoding/decoding
+var encoded = url_encode("hello world!");
+test("url_encode", encoded == "hello%20world%21");
+
+var decoded = url_decode(encoded);
+test("url_decode", decoded == "hello world!");
+
+// Query string operations
+var query_params = {"name": "John", "age": "30"};
+var query_string = url_query_encode(query_params);
+test("url_query_encode", len(query_string) > 0);
+
+var decoded_params = url_query_decode("name=John&age=30");
+test("url_query_decode", type(decoded_params) == "MAP");
+
+// URL validation
+var valid_url = url_is_valid("https://example.com");
+test("url_is_valid", valid_url);
+
+var invalid_url = url_is_valid("not-a-url");
+test("url_is_valid_false", !invalid_url);
+
+print("\n🔢 Testing Base Library:");
+print("------------------------");
+
+// Number base conversions
+var binary = base_to_binary(42);
+test("base_to_binary", binary == "101010");
+
+var octal = base_to_octal(64);
+test("base_to_octal", octal == "100");
+
+var hex = base_to_hex(255);
+test("base_to_hex", hex == "ff");
+
+var hex_upper = base_to_hex(255, true);
+test("base_to_hex_upper", hex_upper == "FF");
+
+// Reverse conversions
+var from_binary = base_from_binary("101010");
+test("base_from_binary", from_binary == 42);
+
+var from_octal = base_from_octal("100");
+test("base_from_octal", from_octal == 64);
+
+var from_hex = base_from_hex("ff");
+test("base_from_hex", from_hex == 255);
+
+var from_hex_prefix = base_from_hex("0xFF");
+test("base_from_hex_prefix", from_hex_prefix == 255);
+
+// Base conversion
+var converted = base_convert("1010", 2, 10);
+test("base_convert", converted == "10");
+
+// Base validation
+var valid_binary = base_validate("1010", 2);
+test("base_validate_valid", valid_binary);
+
+var invalid_binary = base_validate("1012", 2);
+test("base_validate_invalid", !invalid_binary);
+
+print("\n📊 Test Results:");
+print("================");
+print("Total Tests: " + str(total_tests));
+print("Passed: " + str(passed_tests));
+print("Failed: " + str(total_tests - passed_tests));
+
+var success_rate = (passed_tests * 100) / total_tests;
+print("Success Rate: " + str(success_rate) + "%");
+
+if (passed_tests == total_tests) {
+    print("\n🎉 All extended native library tests passed!");
+} else {
+    print("\n⚠️  Some tests failed. Check the implementations.");
+}
+
+print("\n🚀 Extended Native Libraries Test Complete!");

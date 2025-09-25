@@ -7,6 +7,7 @@ import (
 	"darix/ast"
 	"fmt"
 	"hash/fnv"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -49,10 +50,79 @@ type Object interface {
 	Free()
 }
 
+type keyValueEntry struct {
+	key      string
+	rendered string
+}
+
+func formatSequence(prefix, suffix string, elements []Object) string {
+	if len(elements) == 0 {
+		return prefix + suffix
+	}
+	var builder strings.Builder
+	builder.Grow(len(prefix) + len(suffix) + len(elements)*4)
+	builder.WriteString(prefix)
+	for i, elem := range elements {
+		if i > 0 {
+			builder.WriteString(", ")
+		}
+		builder.WriteString(elem.Inspect())
+	}
+	builder.WriteString(suffix)
+	return builder.String()
+}
+
+func formatObjectPairs(pairs map[Object]Object) string {
+	entries := make([]keyValueEntry, 0, len(pairs))
+	for key, value := range pairs {
+		keyStr := key.Inspect()
+		entries = append(entries, keyValueEntry{
+			key:      keyStr,
+			rendered: fmt.Sprintf("%s: %s", keyStr, value.Inspect()),
+		})
+	}
+	return formatEntries("{", "}", entries)
+}
+
+func formatHashPairs(pairs map[HashKey]HashPair) string {
+	entries := make([]keyValueEntry, 0, len(pairs))
+	for _, pair := range pairs {
+		keyStr := pair.Key.Inspect()
+		entries = append(entries, keyValueEntry{
+			key:      keyStr,
+			rendered: fmt.Sprintf("%s:%s", keyStr, pair.Value.Inspect()),
+		})
+	}
+	return formatEntries("{", "}", entries)
+}
+
+func formatEntries(prefix, suffix string, entries []keyValueEntry) string {
+	if len(entries) == 0 {
+		return prefix + suffix
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].key == entries[j].key {
+			return entries[i].rendered < entries[j].rendered
+		}
+		return entries[i].key < entries[j].key
+	})
+	var builder strings.Builder
+	builder.Grow(len(prefix) + len(suffix) + len(entries)*8)
+	builder.WriteString(prefix)
+	for i, entry := range entries {
+		if i > 0 {
+			builder.WriteString(", ")
+		}
+		builder.WriteString(entry.rendered)
+	}
+	builder.WriteString(suffix)
+	return builder.String()
+}
+
 // Class represents a Python-like class with methods and class attributes
 type Class struct {
-    Name    string
-    Members map[string]Object // methods and class attributes
+	Name    string
+	Members map[string]Object // methods and class attributes
 }
 
 func NewClass(name string) *Class { return &Class{Name: name, Members: make(map[string]Object)} }
@@ -63,8 +133,8 @@ func (c *Class) Free()            { c.Members = nil }
 
 // Instance represents an instance of a Class with its own fields
 type Instance struct {
-    Class  *Class
-    Fields map[string]Object
+	Class  *Class
+	Fields map[string]Object
 }
 
 func NewInstance(cls *Class) *Instance { return &Instance{Class: cls, Fields: make(map[string]Object)} }
@@ -75,13 +145,15 @@ func (inst *Instance) Free()            { inst.Class = nil; inst.Fields = nil }
 
 // BoundMethod binds a function to an instance (self)
 type BoundMethod struct {
-    Self *Instance
-    Fn   *Function
+	Self *Instance
+	Fn   *Function
 }
 
 func (bm *BoundMethod) Type() ObjectType { return BOUND_METHOD_OBJ }
-func (bm *BoundMethod) Inspect() string  { return fmt.Sprintf("<bound method %s of %s>", bm.Fn.Name, bm.Self.Class.Name) }
-func (bm *BoundMethod) Free()            { bm.Self = nil; bm.Fn = nil }
+func (bm *BoundMethod) Inspect() string {
+	return fmt.Sprintf("<bound method %s of %s>", bm.Fn.Name, bm.Self.Class.Name)
+}
+func (bm *BoundMethod) Free() { bm.Self = nil; bm.Fn = nil }
 
 // Pool for small integers (0-255) for better performance
 var (
@@ -151,15 +223,152 @@ func (rv *ReturnValue) Free() {
 	rv.Value = nil
 }
 
+// Position represents a position in source code
+type Position struct {
+	Filename string
+	Line     int
+	Column   int
+}
+
+func (p Position) String() string {
+	if p.Filename != "" {
+		return fmt.Sprintf("%s:%d:%d", p.Filename, p.Line, p.Column)
+	}
+	return fmt.Sprintf("line %d:%d", p.Line, p.Column)
+}
+
+// StackFrame represents a single frame in the call stack
+type StackFrame struct {
+	FunctionName string
+	Position     Position
+	Context      string // Source code context around the error
+}
+
+func (sf StackFrame) String() string {
+	result := fmt.Sprintf("  at %s (%s)", sf.FunctionName, sf.Position.String())
+	if sf.Context != "" {
+		result += "\n    " + sf.Context
+	}
+	return result
+}
+
+// Enhanced Error struct with detailed information
 type Error struct {
-	Message string
+	Message    string
+	ErrorType  string        // Error type (e.g., "SyntaxError", "RuntimeError", "TypeError")
+	Position   Position      // Where the error occurred
+	StackTrace []StackFrame  // Call stack
+	Suggestion string        // Helpful suggestion for fixing the error
 }
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
-func (e *Error) Inspect() string  { return "Runtime error: " + e.Message }
+
+func (e *Error) Inspect() string {
+	var out strings.Builder
+	
+	// Error header
+	if e.ErrorType != "" {
+		out.WriteString(e.ErrorType)
+	} else {
+		out.WriteString("Runtime error")
+	}
+	
+	if e.Position.Line > 0 {
+		out.WriteString(" at ")
+		out.WriteString(e.Position.String())
+	}
+	
+	out.WriteString(": ")
+	out.WriteString(e.Message)
+	
+	// Add suggestion if available
+	if e.Suggestion != "" {
+		out.WriteString("\n\nSuggestion: ")
+		out.WriteString(e.Suggestion)
+	}
+	
+	// Add stack trace if available
+	if len(e.StackTrace) > 0 {
+		out.WriteString("\n\nStack trace:")
+		for _, frame := range e.StackTrace {
+			out.WriteString("\n")
+			out.WriteString(frame.String())
+		}
+	}
+	
+	return out.String()
+}
+
 func (e *Error) Free() {
-	// مقداردهی اولیه مجدد
+	// Clear all fields
 	e.Message = ""
+	e.ErrorType = ""
+	e.Position = Position{}
+	e.StackTrace = nil
+	e.Suggestion = ""
+}
+
+// Helper functions for creating enhanced errors
+
+// NewError creates a basic error with message
+func NewError(format string, args ...interface{}) *Error {
+	return &Error{
+		Message:   fmt.Sprintf(format, args...),
+		ErrorType: "RuntimeError",
+	}
+}
+
+// NewErrorWithPosition creates an error with position information
+func NewErrorWithPosition(pos Position, format string, args ...interface{}) *Error {
+	return &Error{
+		Message:   fmt.Sprintf(format, args...),
+		ErrorType: "RuntimeError",
+		Position:  pos,
+	}
+}
+
+// NewSyntaxError creates a syntax error with position
+func NewSyntaxError(pos Position, format string, args ...interface{}) *Error {
+	return &Error{
+		Message:   fmt.Sprintf(format, args...),
+		ErrorType: "SyntaxError",
+		Position:  pos,
+	}
+}
+
+// NewTypeError creates a type error
+func NewTypeError(pos Position, format string, args ...interface{}) *Error {
+	return &Error{
+		Message:   fmt.Sprintf(format, args...),
+		ErrorType: "TypeError",
+		Position:  pos,
+	}
+}
+
+// NewNameError creates a name error (undefined variable/function)
+func NewNameError(pos Position, name string) *Error {
+	return &Error{
+		Message:    fmt.Sprintf("name '%s' is not defined", name),
+		ErrorType:  "NameError",
+		Position:   pos,
+		Suggestion: fmt.Sprintf("Did you mean to declare '%s' first?", name),
+	}
+}
+
+// AddStackFrame adds a stack frame to the error
+func (e *Error) AddStackFrame(functionName string, pos Position, context string) {
+	frame := StackFrame{
+		FunctionName: functionName,
+		Position:     pos,
+		Context:      context,
+	}
+	e.StackTrace = append(e.StackTrace, frame)
+}
+
+// WithSuggestion adds a helpful suggestion to the error
+func (e *Error) WithSuggestion(suggestion string) *Error {
+	e.Suggestion = suggestion
+	return e
 }
 
 type Function struct {
@@ -197,7 +406,7 @@ func (f *Function) Free() {
 	f.Env = nil
 }
 
-// String 
+// String
 type String struct {
 	Value string
 }
@@ -212,7 +421,7 @@ func (s *String) Inspect() string {
 // Free method added
 func (s *String) Free() { /* no-op */ }
 
-// Array 
+// Array
 type Array struct {
 	Elements []Object
 }
@@ -223,23 +432,12 @@ func (a *Array) Type() ObjectType {
 	return ARRAY_OBJ
 }
 
-func (a *Array) Inspect() string {
-	var out bytes.Buffer
-	elements := make([]string, 0, len(a.Elements))
-	for _, e := range a.Elements {
-		// استفاده از Inspect برای هر عنصر
-		elements = append(elements, e.Inspect())
-	}
-	out.WriteString("[")
-	out.WriteString(strings.Join(elements, ", "))
-	out.WriteString("]")
-	return out.String()
-}
+func (a *Array) Inspect() string { return formatSequence("[", "]", a.Elements) }
 
 // Free method added
 func (a *Array) Free() { a.Elements = nil }
 
-// Map 
+// Map
 type Map struct {
 	Pairs map[Object]Object
 }
@@ -247,17 +445,7 @@ type Map struct {
 func NewMap(pairs map[Object]Object) *Map { return &Map{Pairs: pairs} }
 
 func (m *Map) Type() ObjectType { return MAP_OBJ }
-func (m *Map) Inspect() string {
-	var out bytes.Buffer
-	pairs := make([]string, 0, len(m.Pairs))
-	for key, value := range m.Pairs {
-		pairs = append(pairs, key.Inspect()+": "+value.Inspect())
-	}
-	out.WriteString("{")
-	out.WriteString(strings.Join(pairs, ", "))
-	out.WriteString("}")
-	return out.String()
-}
+func (m *Map) Inspect() string  { return formatObjectPairs(m.Pairs) }
 
 // Free method added
 func (m *Map) Free() { m.Pairs = nil }
@@ -360,9 +548,7 @@ func (c *ContinueSignal) Type() ObjectType { return ObjectType(CONTINUE_SIGNAL) 
 func (c *ContinueSignal) Inspect() string  { return "continue" }
 func (c *ContinueSignal) Free()            {}
 
-func NewError(format string, args ...any) *Error {
-	return &Error{Message: fmt.Sprintf(format, args...)}
-}
+// Removed duplicate NewError function - using enhanced version above
 
 func Equals(a, b Object) bool {
 	if a.Type() != b.Type() {
@@ -398,23 +584,15 @@ type Hash struct {
 }
 
 func (h *Hash) Type() ObjectType { return HASH_OBJ }
-func (h *Hash) Inspect() string {
-	var out strings.Builder
-	pairs := []string{}
-	for _, pair := range h.Pairs {
-		pairs = append(pairs, fmt.Sprintf("%s:%s", pair.Key.Inspect(), pair.Value.Inspect()))
-	}
-	out.WriteString("{")
-	out.WriteString(strings.Join(pairs, ", "))
-	out.WriteString("}")
-	return out.String()
-}
+func (h *Hash) Inspect() string  { return formatHashPairs(h.Pairs) }
+
 func (h *Hash) Free() {
 	// آزادسازی اشیاء داخل Pairs
 	for _, pair := range h.Pairs {
 		pair.Key.Free()
 		pair.Value.Free()
 	}
+	h.Pairs = nil
 }
 
 type Hashable interface {
@@ -463,18 +641,6 @@ var (
 )
 
 // ===== EXCEPTION SYSTEM =====
-
-// StackFrame represents a single frame in the call stack
-type StackFrame struct {
-	Function string
-	File     string
-	Line     int
-	Column   int
-}
-
-func (sf *StackFrame) String() string {
-	return fmt.Sprintf("  at %s (%s:%d:%d)", sf.Function, sf.File, sf.Line, sf.Column)
-}
 
 // StackTrace represents the call stack
 type StackTrace struct {

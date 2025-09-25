@@ -9,11 +9,11 @@ import (
 
 type Lexer struct {
 	input        string
-	position     int  // current position
-	readPosition int  // next reading position
-	ch           byte // current char
-	line         int  // current line (1-based)
-	column       int  // current column (1-based)
+	position     int    // current position
+	readPosition int    // next reading position
+	ch           byte   // current char
+	line         int    // current line (1-based)
+	column       int    // current column (1-based)
 	file         string // source filename (optional)
 }
 
@@ -66,6 +66,8 @@ func (l *Lexer) NextToken() token.Token {
 	// Skip comments and whitespace
 	l.skipCommentsAndWhitespace()
 
+	startLine, startColumn, startOffset := l.line, l.column, l.position
+
 	switch l.ch {
 	case '=':
 		tok = l.makeTwoCharToken('=', token.EQ, token.ASSIGN)
@@ -88,16 +90,16 @@ func (l *Lexer) NextToken() token.Token {
 	case '&':
 		if l.peekChar() == '&' {
 			l.readChar()
-			tok = token.Token{Type: token.AND, Literal: "&&", File: l.file, Line: l.line, Column: l.column - 1, Offset: l.position - 1}
+			tok = l.tokenWithLiteral(token.AND, "&&", startLine, startColumn, startOffset)
 		} else {
-			tok = l.newToken(token.ILLEGAL)
+			tok = l.tokenWithLiteral(token.ILLEGAL, string(l.ch), startLine, startColumn, startOffset)
 		}
 	case '|':
 		if l.peekChar() == '|' {
 			l.readChar()
-			tok = token.Token{Type: token.OR, Literal: "||", File: l.file, Line: l.line, Column: l.column - 1, Offset: l.position - 1}
+			tok = l.tokenWithLiteral(token.OR, "||", startLine, startColumn, startOffset)
 		} else {
-			tok = l.newToken(token.ILLEGAL)
+			tok = l.tokenWithLiteral(token.ILLEGAL, string(l.ch), startLine, startColumn, startOffset)
 		}
 	case ',':
 		tok = l.newToken(token.COMMA)
@@ -120,33 +122,23 @@ func (l *Lexer) NextToken() token.Token {
 	case ']':
 		tok = l.newToken(token.RBRACKET)
 	case '"':
-		startLine, startColumn, startOffset := l.line, l.column, l.position
-		tok.Type = token.STRING
-		tok.Literal = l.readString()
-		tok.File, tok.Line, tok.Column, tok.Offset = l.file, startLine, startColumn, startOffset
+		tok = l.tokenWithLiteral(token.STRING, l.readString(), startLine, startColumn, startOffset)
 		return tok
 	case 0:
-		tok = token.Token{Type: token.EOF, Literal: "", File: l.file, Line: l.line, Column: l.column, Offset: l.position}
+		tok = l.tokenWithLiteral(token.EOF, "", startLine, startColumn, startOffset)
 	default:
 		if isLetter(l.ch) {
-			startLine, startColumn, startOffset := l.line, l.column, l.position
-			tok.Literal = l.readIdentifier()
-			tok.Type = token.LookupIdent(tok.Literal)
-			tok.File, tok.Line, tok.Column, tok.Offset = l.file, startLine, startColumn, startOffset
-			return tok
+			literal := l.readIdentifier()
+			return l.tokenWithLiteral(token.LookupIdent(literal), literal, startLine, startColumn, startOffset)
 		} else if isDigit(l.ch) {
-			startLine, startColumn, startOffset := l.line, l.column, l.position
 			number := l.readNumber()
+			tokType := token.TokenType(token.INT)
 			if strings.Contains(number, ".") {
-				tok.Type = token.FLOAT
-			} else {
-				tok.Type = token.INT
+				tokType = token.FLOAT
 			}
-			tok.Literal = number
-			tok.File, tok.Line, tok.Column, tok.Offset = l.file, startLine, startColumn, startOffset
-			return tok
+			return l.tokenWithLiteral(tokType, number, startLine, startColumn, startOffset)
 		} else {
-			tok = l.newToken(token.ILLEGAL)
+			tok = l.tokenWithLiteral(token.ILLEGAL, string(l.ch), startLine, startColumn, startOffset)
 		}
 	}
 
@@ -185,47 +177,55 @@ func (l *Lexer) skipWhitespace() {
 }
 
 func (l *Lexer) skipLineComment() {
-	for l.ch != '\n' && l.ch != 0 {
-		l.readChar()
-	}
+	l.skipUntilNewline()
 }
 
 func (l *Lexer) skipSeparator() {
-	for l.ch != '\n' && l.ch != 0 {
-		l.readChar()
-	}
+	l.skipUntilNewline()
 }
 
 func (l *Lexer) skipBlockComment() {
 	l.readChar() // skip '/'
 	l.readChar() // skip '*'
+	l.skipUntilClosingBlock()
+}
 
+func (l *Lexer) skipUntilNewline() {
+	for l.ch != '\n' && l.ch != 0 {
+		l.readChar()
+	}
+}
+
+func (l *Lexer) skipUntilClosingBlock() {
 	for {
 		if l.ch == 0 {
-			break
+			return
 		}
 		if l.ch == '*' && l.peekChar() == '/' {
 			l.readChar() // skip '*'
 			l.readChar() // skip '/'
-			break
+			return
 		}
 		l.readChar()
 	}
 }
 
-// Optimized token creation helpers
 func (l *Lexer) newToken(tokenType token.TokenType) token.Token {
-	return token.Token{Type: tokenType, Literal: string(l.ch), File: l.file, Line: l.line, Column: l.column, Offset: l.position}
+	return l.tokenWithLiteral(tokenType, string(l.ch), l.line, l.column, l.position)
 }
 
 func (l *Lexer) makeTwoCharToken(secondChar byte, twoCharType, oneCharType token.TokenType) token.Token {
 	if l.peekChar() == secondChar {
-		ch := l.ch
+		first := l.ch
 		startLine, startColumn, startOffset := l.line, l.column, l.position
 		l.readChar()
-		return token.Token{Type: twoCharType, Literal: string(ch) + string(l.ch), File: l.file, Line: startLine, Column: startColumn, Offset: startOffset}
+		return l.tokenWithLiteral(twoCharType, string([]byte{first, l.ch}), startLine, startColumn, startOffset)
 	}
-	return l.newToken(oneCharType)
+	return l.tokenWithLiteral(oneCharType, string(l.ch), l.line, l.column, l.position)
+}
+
+func (l *Lexer) tokenWithLiteral(tokenType token.TokenType, literal string, line, column, offset int) token.Token {
+	return token.Token{Type: tokenType, Literal: literal, File: l.file, Line: line, Column: column, Offset: offset}
 }
 
 // Optimized number reading with single pass

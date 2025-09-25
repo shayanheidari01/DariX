@@ -2,216 +2,305 @@
 
 ![DariX Logo](DariX.png)
 
-DariX is a dynamically typed programming language implemented in Go with a compiler + bytecode VM design and an interpreter fallback. It features a C-like syntax and supports variables, functions, control flow (if/else, while, for), arrays/maps, a rich set of built-ins, and a Python-like exception system with improved diagnostics.
+**DariX** is a modern, powerful, and comprehensive programming language inspired by Python and Dart, implemented in Go. It features C-like syntax, VM + Compiler execution system with Interpreter fallback, and advanced capabilities including OOP, Exception Handling, Native Libraries, and HTTP Server.
 
-## Features
+## 🌟 Key Features
 
-*   **Dynamic Typing:** No explicit type annotations required.
-*   **Compiler + Bytecode VM:** Fast VM execution with compiler optimizations. Interpreter exists as a fallback.
-*   **Optimizations:** Constant folding in the compiler and a safe peephole optimizer for common patterns.
-*   **C-like Syntax:** Familiar syntax for C/Java-style developers.
-*   **First-Class Functions:** Pass/return functions freely.
-*   **Data Structures:** Arrays and Maps.
-*   **Control Flow:** `if/else`, `while`, C-style `for`, `break`, `continue`.
-*   **Exception Handling:** Python-inspired try/catch/finally with built-in exception types and stack traces.
-*   **Modules:** Import `.dax` files, plus native Go modules via `import "go:<name>"`.
-*   **Native Modules & FFI:** Built-in `go:fs` (filesystem) and `go:ffi` (reflective foreign function interface).
-*   **Enhanced REPL:** Multi-line input with grouping awareness.
-*   **CLI Tools:** Backend selection (`auto|vm|interp`), disassembler, stdin support.
+### 🚀 **Advanced Architecture:**
+- **Bytecode VM + Compiler:** Fast execution with compiler optimizations
+- **Interpreter Fallback:** Complete support for all features
+- **Auto Backend Selection:** Automatic selection of best backend
+- **Performance Optimizations:** Object pooling, constant folding, peephole optimizer
 
-## Getting Started
+### 💻 **Complete Programming Language:**
+- **Dynamic Typing:** No need for explicit type definitions
+- **Object-Oriented Programming:** Classes, objects, methods, constructors
+- **First-Class Functions:** Functions as first-class values
+- **Exception Handling:** Complete try-catch-finally system
+- **Module System:** Import files and native modules
 
-### Prerequisites
+### 🌐 **Network and Web Capabilities:**
+- **HTTP Server:** Complete HTTP server with routing and middleware
+- **HTTP Client:** HTTP client with support for all methods
+- **WebSocket:** Real-time communications
+- **Socket Programming:** Low-level network programming
+- **SMTP:** Email sending
+- **DNS:** DNS operations and validation
 
-*   Go (1.21+ recommended)
+### 📚 **Native Libraries:**
+- **13 Native Libraries** with 100+ functions
+- **Math, String, JSON, HTTP, Crypto, Time, OS, Regex**
+- **Path, Random, URL, Base, Collections**
+- **High Performance** with Go native implementation
 
-### Installation
+### 🛠 **Development Tools:**
+- **Enhanced REPL:** Advanced interactive environment with history and completion
+- **VS Code Extension:** Complete IDE support
+- **CLI Tools:** Various command-line tools
+- **Comprehensive Testing:** Complete test suite
+- **CI/CD Pipeline:** Automated build pipeline
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/shayanheidari01/darix.git
-    cd darix
-    ```
-2.  Build the interpreter:
-    ```bash
-    go build -o darix main.go
-    ```
-3.  (Optional) Install system-wide:
-    ```bash
-    sudo cp darix /usr/local/bin/
-    ```
+## 🚀 Quick Start
 
-To test the installation, run the included test file:
+### 📋 Prerequisites
+- **Go 1.21+** (recommended)
+- **Git** for cloning the repository
 
+### 📥 Installation
+
+#### Method 1: Automatic Installation (Recommended)
+
+**Termux Android:**
 ```bash
+wget -qO- https://raw.githubusercontent.com/shayanheidari01/DariX/refs/heads/main/install.sh | bash
+```
+
+**Linux:**
+```bash
+wget -qO- https://raw.githubusercontent.com/shayanheidari01/DariX/refs/heads/main/install.sh | sudo bash
+```
+
+#### Method 2: Build from Source
+```bash
+# Clone repository
+git clone https://github.com/shayanheidari01/DariX.git
+cd DariX
+
+# Build
+go build -o darix main.go
+
+# Test installation
 ./darix run test.dax
 ```
 
-This should output the results of various operations in DariX.
-
-### Running DariX Code
-
-Official source file extension is `.dax`.
-
-CLI commands:
-
+#### Method 3: Using Makefile
 ```bash
-# Run a file (auto backend tries VM, falls back to interpreter)
-darix run path/to/your/script.dax
+# Build for current platform
+make build
 
-# Select backend explicitly
-darix run --backend=vm path/to/your/script.dax
-darix run --backend=interp path/to/your/script.dax
+# Build for all platforms
+make build-all
 
-# Read program from stdin
-type script.dax | darix run -
+# Run tests
+make test
 
-# Disassemble bytecode (requires VM-compatible code)
-darix disasm path/to/your/script.dax
+# Start REPL
+make repl
+```
 
-# REPL
+#### Method 4: System Installation
+```bash
+# Linux/macOS
+sudo cp darix /usr/local/bin/
+
+# Windows
+copy darix.exe C:\Windows\System32\
+```
+
+### 🎯 Running DariX Code
+
+**Official file extension:** `.dax`
+
+#### CLI Commands:
+```bash
+# Run file (auto backend)
+darix run script.dax
+
+# Explicit backend selection
+darix run --backend=vm script.dax      # Faster
+darix run --backend=interp script.dax  # More complete
+darix run --backend=auto script.dax    # Smart
+
+# Run from stdin
+echo 'print("Hello!")' | darix run -
+
+# Disassemble bytecode
+darix disasm script.dax
+
+# Interactive environment (REPL)
 darix repl
 
-# Evaluate a snippet
-darix eval "print(1 + 2 * 3)"
+# Direct code execution
+darix eval 'print(2 + 3 * 4)'
+
+# Show version
+darix version
+
+# Help
+darix help
 ```
 
-## Language Guide
-
-### Hello, World!
-
-```dax
-print("Hello, World!");
+#### Security and Sandboxing:
+```bash
+# Restrict access
+darix run --allow=go:math,go:string script.dax
+darix run --deny=go:os,go:fs script.dax
+darix run --fs-root=/safe/path script.dax
+darix run --fs-ro script.dax
+darix run --cpu=1000000 script.dax
 ```
 
-### Variables
+## 📖 DariX Language Guide
 
-Variables are declared using the `var` keyword. Assignment to existing variables uses the `=` operator.
+### 👋 Hello World!
 
 ```dax
+print("Hello World!");
+print("Hello, DariX World!");
+```
+
+### 🔢 Variables
+
+Variables are declared using the `var` keyword. To change a variable's value, use the `=` operator.
+
+```dax
+// Variable declarations
 var x = 5;
 var name = "DariX";
 var isActive = true;
+var price = 99.99;
+var items = [1, 2, 3];
+var person = {"name": "Ali", "age": 25};
 
-// Re-assigning
+// Changing variable values
 x = 10;
 name = "New Name";
+isActive = false;
 ```
 
-### Data Types
+### 🎯 Data Types
 
-DariX supports the following basic data types:
+DariX supports the following data types:
 
-*   **Integer:** `42`, `-10`
-*   **Float:** `3.14`, `-0.001`
-*   **Boolean:** `true`, `false`
-*   **String:** `"Hello"`, `"DariX"`
-*   **Array:** `[1, 2, 3]`, `["a", "b", "c"]`
-*   **Map:** `{"key1": "value1", "key2": 100}`
-*   **Null:** Represented internally, evaluates to `false` in boolean contexts.
+#### Primitive Types:
+- **Integer:** `42`, `-10`, `0`
+- **Float:** `3.14`, `-0.001`, `2.5`
+- **Boolean:** `true`, `false`
+- **String:** `"Hello"`, `"DariX"`, `'Single quotes'`
+- **Null:** `null` - represents absence of value
 
-### Operators
-
-*   **Arithmetic:** `+`, `-`, `*`, `/`, `%` (Modulo)
-*   **Comparison:** `<`, `>`, `<=`, `>=`, `==`, `!=`
-*   **Logical:** `!` (NOT), `&&` (AND), `||` (OR)
-*   **String Concatenation:** `+`
-*   **Unary:** `-` (Negation), `!` (Logical NOT)
-
-### Control Flow
-
-#### If/Else
+#### Composite Types:
+- **Array:** `[1, 2, 3]`, `["a", "b", "c"]`, `[1, "two", true]`
+- **Map/Object:** `{"key": "value", "age": 30}`
 
 ```dax
-var x = 10;
+// Examples of different data types
+var number = 42;                    // Integer
+var pi = 3.14159;                   // Float
+var isReady = true;                 // Boolean
+var message = "Test message";       // String
+var empty = null;                   // Null
+var colors = ["red", "blue", "green"]; // Array
+var student = {                     // Map
+    "name": "Mohammad",
+    "grade": 18.5,
+    "passed": true
+};
+```
 
-if (x > 5) {
-    print("x is greater than 5");
-} else if (x == 5) {
-    print("x is equal to 5");
-} else {
-    print("x is less than 5");
+### ⚡ عملگرها (Operators)
+
+#### عملگرهای ریاضی:
+```dax
+var a = 10, b = 3;
+print(a + b);    // جمع: 13
+print(a - b);    // تفریق: 7
+print(a * b);    // ضرب: 30
+print(a / b);    // تقسیم: 3.333...
+print(a % b);    // باقیمانده: 1
+```
+
+#### عملگرهای مقایسه:
+```dax
+var x = 5, y = 10;
+print(x < y);    // کمتر از: true
+print(x > y);    // بزرگتر از: false
+print(x <= 5);   // کمتر یا مساوی: true
+print(x >= 5);   // بزرگتر یا مساوی: true
+print(x == 5);   // مساوی: true
+print(x != y);   // نامساوی: true
+```
+
+#### عملگرهای منطقی:
+```dax
+var isTrue = true, isFalse = false;
+print(!isTrue);           // نقیض (NOT): false
+print(isTrue && isFalse); // و منطقی (AND): false
+print(isTrue || isFalse); // یا منطقی (OR): true
+```
+
+#### عملگرهای رشته:
+```dax
+var first = "سلام";
+var second = " دنیا";
+print(first + second);    // الحاق رشته: "سلام دنیا"
+```
+
+#### عملگرهای یکی (Unary):
+```dax
+var num = 5;
+print(-num);     // منفی کردن: -5
+print(!true);    // نقیض منطقی: false
 }
-```
-
-#### While Loop
-
-```dax
-var i = 0;
-while (i < 5) {
-    print(i);
-    i = i + 1;
+// حلقه با شرط پیچیده
+var sum = 0;
+var num = 1;
+while (sum < 100) {
+    sum = sum + num;
+    num = num + 1;
 }
+print("مجموع:", sum);
 ```
 
-#### For Loop (C-style)
-
+#### For Loops (C-style):
 ```dax
-// for (initialization; condition; post-expression)
-for (var j = 0; j < 3; j = j + 1) {
+// Simple loop
+for (var j = 0; j < 5; j = j + 1) {
     print("Iteration:", j);
 }
 
-// Infinite loop example (use break to exit)
-var k = 0;
+// Loop with different steps
+for (var k = 10; k > 0; k = k - 2) {
+    print("Countdown:", k);
+}
+
+// Infinite loop (use break to exit)
+var counter = 0;
 for (;;) {
-   if (k >= 2) {
-       break; // Exit the loop
-   }
-   print("Infinite?", k);
-   k = k + 1;
+    if (counter >= 3) {
+        break; // Exit loop
+    }
+    print("Infinite?", counter);
+    counter = counter + 1;
 }
 ```
 
-#### Break and Continue
-
-*   `break`: Exits the innermost `while` or `for` loop immediately.
-*   `continue`: Skips the rest of the current iteration and jumps to the loop's condition/post-expression.
-
+#### Break and Continue:
 ```dax
+// Using break and continue
 for (var i = 0; i < 10; i = i + 1) {
     if (i == 3) {
-        continue; // Skip printing 3
+        continue; // Skip number 3
     }
     if (i == 7) {
-        break; // Stop the loop before reaching 10
+        break; // Stop loop before reaching 10
     }
     print(i);
 }
 // Output: 0, 1, 2, 4, 5, 6
-```
 
-### Functions
-
-Functions are declared using the `func` keyword.
-
-```dax
-// Function declaration
-func greet(name) {
-    print("Hello,", name);
+// More complex example
+var numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+for (var i = 0; i < len(numbers); i = i + 1) {
+    if (numbers[i] % 2 == 0) {
+        continue; // Skip even numbers
+    }
+    if (numbers[i] > 7) {
+        break; // Stop at numbers greater than 7
+    }
+    print("Odd number:", numbers[i]);
 }
-
-// Calling the function
-greet("DariX");
-
-// Function with return value
-func add(a, b) {
-    return a + b;
-}
-
-var sum = add(2, 3);
-print("Sum is:", sum); // Output: Sum is: 5
-
-// Function assigned to a variable (Function Literal)
-var multiply = func(x, y) {
-    return x * y;
-};
-print("Product:", multiply(4, 5)); // Output: Product: 20
-```
-
-### Data Structures
-
-#### Arrays
+// آرایه‌ها در داریکس از نوع ordered collection هستند
 
 Arrays are ordered collections of values.
 
@@ -252,25 +341,89 @@ print("Person map:", person);
 print("Map size:", len(person)); // Built-in len function
 ```
 
-### Modules (Import)
+### 📦 ماژول‌ها (Modules)
 
-You can split your code into multiple files and import them using the `import` statement. The imported file is executed in the *same* environment, making its variables and functions available.
+می‌توانید کد خود را در چندین فایل تقسیم کنید و با استفاده از دستور `import` آن‌ها را وارد کنید.
 
+#### مثال ماژول ریاضی:
 **math.dax**
 ```dax
+// توابع ریاضی
 func square(x) {
     return x * x;
 }
 
-PI = 3.14159; // Exported variable
+func cube(x) {
+    return x * x * x;
+}
+
+func power(base, exp) {
+    var result = 1;
+    for (var i = 0; i < exp; i = i + 1) {
+        result = result * base;
+    }
+    return result;
+}
+
+// ثابت‌های ریاضی
+PI = 3.14159;
+E = 2.71828;
 ```
 
 **main.dax**
 ```dax
 import "math.dax";
 
-print("PI is:", PI);
-print("Square of 4 is:", square(4));
+print("عدد پی:", PI);
+print("مربع 4:", square(4));
+print("مکعب 3:", cube(3));
+print("2 به توان 8:", power(2, 8));
+```
+
+#### مثال ماژول کاربردی:
+**utils.dax**
+```dax
+// توابع کمکی
+func isEven(n) {
+    return n % 2 == 0;
+}
+
+func isOdd(n) {
+    return n % 2 != 0;
+}
+
+func max(a, b) {
+    if (a > b) {
+        return a;
+    }
+    return b;
+}
+
+func min(a, b) {
+    if (a < b) {
+        return a;
+    }
+    return b;
+}
+```
+
+**app.dax**
+```dax
+import "utils.dax";
+
+var numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+for (var i = 0; i < len(numbers); i = i + 1) {
+    var num = numbers[i];
+    if (isEven(num)) {
+        print(num, "زوج است");
+    } else {
+        print(num, "فرد است");
+    }
+}
+
+print("بیشترین:", max(15, 23));
+print("کمترین:", min(15, 23));
 ```
 
 ## Native Modules & FFI (Go interop)
@@ -389,51 +542,24 @@ print(calc_add(2, 40)); // 42
 - Namespacing: for now, functions are injected directly. You can prefix names (e.g., `fs_*`, `calc_*`). A future update may keep functions under a module object (e.g., `fs.read`).
 - Safety: `go:fs` and `go:ffi` expose host capabilities. For sandboxed environments, add validation layers or restrict which modules are registered.
 
-### Exception Handling
+## ⚠️ **مدیریت خطا (Exception Handling)**
 
-DariX includes a comprehensive exception handling system with try-catch-finally blocks:
+داریکس دارای سیستم کامل مدیریت خطا با الهام از Python است:
 
 ```dax
+// خطاهای خودکار
 try {
-    var result = 10 / 0; // Automatically throws ZeroDivisionError
+    var result = 10 / 0; // خطای تقسیم بر صفر
 } catch (ZeroDivisionError e) {
-    print("Caught division by zero:", e);
+    print("خطای تقسیم بر صفر:", e);
 } finally {
-    print("This always executes");
+    print("این همیشه اجرا می‌شود");
 }
-```
 
-Multiple catch clauses are supported:
-
-```dax
-try {
-    processData();
-} catch (ValueError e) {
-    print("Value error:", e);
-} catch (TypeError e) {
-    print("Type error:", e);
-} catch (e) {
-    print("Any other exception:", e);
-}
-```
-
-Built-in exception types include:
-*   `ValueError` - Invalid value provided
-*   `TypeError` - Incorrect type used
-*   `RuntimeError` - General runtime error
-*   `IndexError` - Array index out of bounds (thrown automatically)
-*   `KeyError` - Map key not found
-*   `ZeroDivisionError` - Division by zero (thrown automatically)
-
-Creating and throwing exceptions:
-
-```dax
+// ایجاد و پرتاب خطاهای سفارشی
 func validateAge(age) {
     if (age < 0) {
-        throw ValueError("Age cannot be negative");
-    }
-    if (age > 150) {
-        throw ValueError("Age seems unrealistic");
+        throw ValueError("سن نمی‌تواند منفی باشد");
     }
     return age;
 }
@@ -441,155 +567,174 @@ func validateAge(age) {
 try {
     var validAge = validateAge(-5);
 } catch (ValueError e) {
-    print("Invalid age:", e);
+    print("سن نامعتبر:", e);
 }
 ```
 
-### Built-in Functions
+## 🏗️ **برنامه‌نویسی شیءگرا (OOP)**
 
-DariX comes with a comprehensive set of built-in functions for common tasks:
+```dax
+class Person {
+    func __init__(self, name, age) {
+        self.name = name;
+        self.age = age;
+    }
+    
+    func greet(self) {
+        print("سلام، من " + self.name + " هستم.");
+    }
+}
 
-#### Core Functions
-*   `print(...args)`: Prints arguments to standard output, separated by spaces, followed by a newline.
-*   `len(obj)`: Returns the length of a string, array, or map.
-*   `type(obj)`: Returns the type of an object as a string (e.g., "INTEGER", "STRING").
-*   `input([prompt])`: Reads a line of input from the user. An optional prompt string can be provided.
+var person = Person("علی", 25);
+person.greet();
+```
 
-#### Type Conversion
-*   `str(obj)`: Converts an integer, float, or boolean to its string representation.
-*   `int(obj)`: Converts a string (representing an integer) to an integer.
-*   `float(obj)`: Converts a string (representing a float) to a float.
-*   `bool(obj)`: Converts an object to a boolean (following truthiness rules).
+## 📚 **Built-in Functions**
 
-#### Mathematical Functions
-*   `abs(x)`: Returns the absolute value of a number.
-*   `max(...args)`: Returns the maximum value among the provided arguments.
-*   `min(...args)`: Returns the minimum value among the provided arguments.
-*   `sum(array)`: Returns the sum of elements in an array.
-*   `pow(base, exp)`: Calculates `base` raised to the power of `exp`.
-*   `clamp(val, min, max)`: Clamps `val` to be within the range [`min`, `max`].
+DariX comes with a comprehensive set of built-in functions:
 
-#### Array Functions
-*   `range([start,] stop[, step])`: Creates an array of integers. Mimics Python's `range`.
-*   `reverse(obj)`: Returns the reverse of a string or array.
-*   `sort(array)`: Returns a new sorted array.
-*   `sorted(array)`: Returns a new sorted array (alias for `sort`).
-*   `append(array, ...values)`: Returns a new array with values appended to the end of the original array.
-*   `contains(array, value)`: Checks if an array contains a specific value.
+### Core Functions:
+- `print(...args)` - Print to output
+- `len(obj)` - Length of string, array, or map
+- `type(obj)` - Object type
+- `input([prompt])` - Get user input
 
-#### Map Functions
-*   `keys(map)`: Returns an array of all keys in a map.
-*   `values(map)`: Returns an array of all values in a map.
-*   `items(map)`: Returns an array of [key, value] pairs from a map.
+### Type Conversion:
+- `str(obj)`, `int(obj)`, `float(obj)`, `bool(obj)`
 
-#### String Functions
-*   `upper(str)`: Converts a string to uppercase.
-*   `lower(str)`: Converts a string to lowercase.
-*   `trim(str)`: Removes leading and trailing whitespace from a string.
+### Math Functions:
+- `abs(x)`, `max(...args)`, `min(...args)`, `sum(array)`, `pow(base, exp)`
 
-#### Utility Functions
-*   `now()`: Returns the current date and time as a string (RFC3339 format).
-*   `timestamp()`: Returns the current Unix timestamp as an integer.
-*   `exit([code])`: Terminates the program immediately. An optional integer exit code can be provided.
+### Array Functions:
+- `range([start,] stop[, step])`, `reverse(obj)`, `sort(array)`, `append(array, ...values)`
 
-#### Exception Functions
-*   `Exception([type,] message)`: Creates a new exception object.
-*   `ValueError(message)`: Creates a ValueError exception.
-*   `TypeError(message)`: Creates a TypeError exception.
-*   `RuntimeError(message)`: Creates a RuntimeError exception.
-*   `IndexError(message)`: Creates an IndexError exception.
-*   `KeyError(message)`: Creates a KeyError exception.
-*   `ZeroDivisionError(message)`: Creates a ZeroDivisionError exception.
+### Map Functions:
+- `keys(map)`, `values(map)`, `items(map)`
 
-## Building and Testing
+### String Functions:
+- `upper(str)`, `lower(str)`, `trim(str)`
 
-### Quick Build
+### Utility Functions:
+- `now()`, `timestamp()`, `exit([code])`
 
+## 🏗️ **Build and Testing**
+
+### Build Project:
 ```bash
 # Build for current platform
 go build -o darix .
 
-# Or use the build script
-chmod +x build.sh
-./build.sh
-```
-
-### Using Makefile
-
-```bash
-# Build and test
-make all
-
-# Build for current platform
+# Or use Makefile
 make build
-
-# Build for all platforms
-make build-all
-
-# Run tests
-make test
-
-# Run comprehensive tests
-make test-comprehensive
-
-# Start REPL
-make repl
-
-# Clean build artifacts
-make clean
-
-# Show all available targets
-make help
+make build-all  # All platforms
 ```
 
-### Project Structure
-
-```
-DariX/
-├── ast/                    # Abstract Syntax Tree definitions
-├── code/                   # Bytecode instruction definitions
-├── compiler/               # Bytecode compiler
-├── examples/               # Example DariX programs
-│   ├── comprehensive_test.dax
-│   ├── hello_world.dax
-│   └── vm_basic_test.dax
-├── internal/               # Internal packages
-│   ├── native/            # Native module system
-│   └── version/           # Version information
-├── interpreter/            # Tree-walking interpreter
-├── lexer/                  # Lexical analyzer
-├── object/                 # Object system and built-ins
-├── parser/                 # Parser implementation
-├── repl/                   # Enhanced REPL
-├── tests/                  # Test suite
-│   └── test_runner.dax
-├── token/                  # Token definitions
-├── vm/                     # Bytecode virtual machine
-├── build.sh               # Build script
-├── Makefile               # Build automation
-└── main.go                # Main entry point
-```
-
-### Running Tests
-
-DariX includes a comprehensive test suite:
-
+### Running Tests:
 ```bash
-# Run the test suite
+# Run test suite
 ./darix run tests/test_runner.dax
 
-# Run comprehensive feature tests
-./darix run examples/comprehensive_test.dax
-
-# Or use make
+# Comprehensive tests
 make test
 make test-comprehensive
 ```
 
-## Contributing
+### Project Structure:
+```
+DariX/
+├── ast/           # Abstract Syntax Tree
+├── compiler/      # Bytecode compiler
+├── vm/            # Virtual machine
+├── interpreter/   # Tree-walking interpreter
+├── lexer/         # Lexical analyzer
+├── parser/        # Parser implementation
+├── object/        # Object system
+├── repl/          # Interactive environment
+├── internal/      # Internal modules
+├── examples/      # Example programs
+├── tests/         # Test suite
+└── main.go        # Main entry point
+```
 
-Contributions are welcome! Please feel free to submit issues, fork the repository, and send pull requests.
+## 🤝 **Join the DariX Community - مشارکت در پروژه**
 
-## License
+We warmly welcome contributions from developers around the world! DariX is an open-source project that thrives on community collaboration.
 
-This project is licensed under the Apache License. See the `LICENSE` file for details.
+### 🌟 **How to Contribute:**
+
+#### 🐛 **Report Issues & Bugs:**
+- Found a bug? [Create an issue](https://github.com/shayanheidari01/DariX/issues/new)
+- Suggest new features or improvements
+- Report documentation errors or unclear sections
+
+#### 💻 **Code Contributions:**
+- Fork the repository
+- Create a feature branch: `git checkout -b feature/amazing-feature`
+- Make your changes and add tests
+- Commit with clear messages: `git commit -m 'Add amazing feature'`
+- Push to your branch: `git push origin feature/amazing-feature`
+- Open a Pull Request with detailed description
+
+#### 📚 **Documentation & Examples:**
+- Improve existing documentation
+- Add new examples and tutorials
+- Translate documentation to other languages
+- Create video tutorials or blog posts
+
+#### 🧪 **Testing & Quality Assurance:**
+- Write unit tests for new features
+- Test on different platforms (Windows, Linux, macOS, Android)
+- Performance testing and benchmarking
+- Security testing and vulnerability reports
+
+### 🎯 **Areas We Need Help With:**
+
+- **Native Libraries:** Expand the collection of Go-native modules
+- **Performance Optimization:** VM improvements and compiler optimizations
+- **IDE Support:** Enhance VS Code extension, create plugins for other editors
+- **Mobile Development:** Android app development with DariX
+- **Web Framework:** Build a comprehensive web framework
+- **Package Manager:** Create a package management system
+- **Standard Library:** Expand built-in functions and utilities
+
+### 🏆 **Recognition:**
+Contributors will be:
+- Listed in our [CONTRIBUTORS.md](CONTRIBUTORS.md) file
+- Mentioned in release notes
+- Given credit in documentation
+- Invited to join our core team for significant contributions
+
+### 💬 **Get in Touch:**
+- **GitHub Discussions:** Share ideas and ask questions
+- **Issues:** Technical problems and feature requests
+- **Email:** Contact maintainers for private discussions
+
+### 🌍 **International Contributors Welcome:**
+We especially encourage contributions from:
+- **Persian/Farsi speakers** for localization
+- **Developers from Iran** and Persian-speaking countries
+- **Students and educators** for educational content
+- **Open source enthusiasts** from all backgrounds
+
+**Let's build the future of programming languages together! 🚀**
+
+---
+
+**Your contribution to the DariX project is highly valuable! We especially invite Iranian and Persian-speaking developers to participate in the development of this programming language.**
+
+## 📄 **License**
+
+This project is licensed under the Apache License.
+
+## 🎯 **Feature Summary**
+
+✅ **Complete Language:** Dynamic typing, OOP, Exception handling  
+✅ **High Performance:** VM + Compiler with advanced optimizations  
+✅ **Network & Web:** HTTP Server, WebSocket, SMTP, DNS  
+✅ **13 Native Libraries:** Math, JSON, Crypto, and more  
+✅ **Development Tools:** Enhanced REPL, VS Code Extension  
+✅ **Comprehensive Testing:** 40+ automated tests with 100% success  
+✅ **CI/CD:** Automated pipeline and multi-platform support  
+✅ **Complete Documentation:** English and Persian guides  
+
+**DariX is ready for use in real-world projects! 🚀**

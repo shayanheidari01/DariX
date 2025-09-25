@@ -27,7 +27,8 @@ type Interpreter struct {
 	env           *object.Environment
 	builtins      map[string]*object.Builtin
 	loadedModules map[string]object.Object
-	callStack     []*object.StackFrame
+	callStack     []object.StackFrame
+	currentFile   string // Current source file being executed
 }
 
 func New() *Interpreter {
@@ -35,10 +36,61 @@ func New() *Interpreter {
 		env:           object.NewEnvironment(),
 		builtins:      make(map[string]*object.Builtin, 32),
 		loadedModules: make(map[string]object.Object, 8),
-		callStack:     []*object.StackFrame{},
+		callStack:     []object.StackFrame{},
 	}
 	inter.initBuiltins()
 	return inter
+}
+
+func builtinError(name, format string, args ...any) object.Object {
+	return object.NewError(name+": "+format, args...)
+}
+
+// Enhanced error creation with suggestions
+func builtinErrorWithSuggestion(name, format, suggestion string, args ...any) object.Object {
+	err := object.NewError(name+": "+format, args...)
+	err.WithSuggestion(suggestion)
+	return err
+}
+
+func expectExactArgs(name string, args []object.Object, expected int) object.Object {
+	if len(args) != expected {
+		return builtinError(name, "expected %d argument(s), got %d", expected, len(args))
+	}
+	return nil
+}
+
+func expectArgsRange(name string, args []object.Object, min, max int) object.Object {
+	if len(args) < min || len(args) > max {
+		if min == max {
+			return builtinError(name, "expected %d argument(s), got %d", min, len(args))
+		}
+		return builtinError(name, "expected %d-%d arguments, got %d", min, max, len(args))
+	}
+	return nil
+}
+
+func expectMinArgs(name string, args []object.Object, min int) object.Object {
+	if len(args) < min {
+		return builtinError(name, "expected at least %d argument(s)", min)
+	}
+	return nil
+}
+
+func requireStringArg(name, label string, value object.Object) (*object.String, object.Object) {
+	str, ok := value.(*object.String)
+	if !ok {
+		return nil, builtinError(name, "%s must be string, got %s", label, value.Type())
+	}
+	return str, nil
+}
+
+func requireArrayArg(name, label string, value object.Object) (*object.Array, object.Object) {
+	arr, ok := value.(*object.Array)
+	if !ok {
+		return nil, builtinError(name, "%s must be an array, got %s", label, value.Type())
+	}
+	return arr, nil
 }
 
 // GetEnvironment returns the current environment for REPL introspection
@@ -965,12 +1017,18 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 		default:
 			fnName = string(function.Type())
 		}
-		i.pushFrame(fnName, node.Token.File, node.Token.Line, node.Token.Column)
+		pos := object.Position{
+			Filename: node.Token.File,
+			Line:     node.Token.Line,
+			Column:   node.Token.Column,
+		}
+		i.pushFrame(fnName, pos, "")
 		res := i.applyFunction(function, args)
 		// Attach stack trace if exception and none set yet
 		if exSig, ok := res.(*object.ExceptionSignal); ok && exSig.Exception != nil {
 			if exSig.Exception.StackTrace == nil {
-				exSig.Exception.StackTrace = i.currentStackTrace()
+				frames := i.currentStackTrace()
+				exSig.Exception.StackTrace = &object.StackTrace{Frames: convertToPointerFrames(frames)}
 			}
 		}
 		i.popFrame()
@@ -1817,15 +1875,16 @@ func (i *Interpreter) matchesExceptionType(exception *object.Exception, catchCla
     return exception.ExceptionType == catchClause.ExceptionType.Value
 }
 
-// ===== Python-like Traceback Helpers =====
+// ===== Enhanced Error Tracking Helpers =====
+
 // pushFrame records a call-site frame for better tracebacks
-func (i *Interpreter) pushFrame(functionName, file string, line, column int) {
-    i.callStack = append(i.callStack, &object.StackFrame{
-        Function: functionName,
-        File:     file,
-        Line:     line,
-        Column:   column,
-    })
+func (i *Interpreter) pushFrame(functionName string, pos object.Position, context string) {
+    frame := object.StackFrame{
+        FunctionName: functionName,
+        Position:     pos,
+        Context:      context,
+    }
+    i.callStack = append(i.callStack, frame)
 }
 
 // popFrame removes the latest frame
@@ -1836,14 +1895,74 @@ func (i *Interpreter) popFrame() {
     i.callStack = i.callStack[:len(i.callStack)-1]
 }
 
-// currentStackTrace returns a copy of current frames as a StackTrace object
-func (i *Interpreter) currentStackTrace() *object.StackTrace {
+// currentStackTrace returns a copy of current frames
+func (i *Interpreter) currentStackTrace() []object.StackFrame {
     if len(i.callStack) == 0 {
-        return &object.StackTrace{Frames: nil}
+        return nil
     }
-    frames := make([]*object.StackFrame, len(i.callStack))
+    frames := make([]object.StackFrame, len(i.callStack))
     copy(frames, i.callStack)
-    return &object.StackTrace{Frames: frames}
+    return frames
+}
+
+// createEnhancedError creates an error with full context
+func (i *Interpreter) createEnhancedError(errorType, message string, node ast.Node) *object.Error {
+    pos := i.getNodePosition(node)
+    context := i.getSourceContext(pos)
+    
+    err := &object.Error{
+        Message:    message,
+        ErrorType:  errorType,
+        Position:   pos,
+        StackTrace: i.currentStackTrace(),
+    }
+    
+    if context != "" {
+        err.StackTrace = append(err.StackTrace, object.StackFrame{
+            FunctionName: "<current>",
+            Position:     pos,
+            Context:      context,
+        })
+    }
+    
+    return err
+}
+
+// getNodePosition extracts position from AST node
+func (i *Interpreter) getNodePosition(node ast.Node) object.Position {
+    if node == nil {
+        return object.Position{Filename: i.currentFile}
+    }
+    
+    // Try to get position from node (this would need to be added to AST nodes)
+    // For now, return basic info
+    return object.Position{
+        Filename: i.currentFile,
+        Line:     1, // Would need to be extracted from node
+        Column:   1, // Would need to be extracted from node
+    }
+}
+
+// getSourceContext gets source code around the error position
+func (i *Interpreter) getSourceContext(pos object.Position) string {
+    // This would read the source file and extract context around the line
+    // For now, return empty string
+    return ""
+}
+
+// SetCurrentFile sets the current file being executed
+func (i *Interpreter) SetCurrentFile(filename string) {
+    i.currentFile = filename
+}
+
+// convertToPointerFrames converts []StackFrame to []*StackFrame for compatibility
+func convertToPointerFrames(frames []object.StackFrame) []*object.StackFrame {
+    result := make([]*object.StackFrame, len(frames))
+    for i := range frames {
+        // Create pointer to the frame
+        result[i] = &frames[i]
+    }
+    return result
 }
 
 // evalClassDeclaration evaluates class declarations

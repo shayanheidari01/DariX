@@ -1,0 +1,6 @@
+// Simple error demonstration
+print("Testing enhanced error reporting...");
+
+// This will cause a division by zero error
+var result = 10 / 0;
+print("Result:", result);

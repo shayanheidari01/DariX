@@ -1,0 +1,19 @@
+// Simple test for native libraries
+import "go:math";
+import "go:string";
+import "go:crypto";
+
+print("Testing Math Library:");
+print("sqrt(16) =", math_sqrt(16));
+print("pow(2, 3) =", math_pow(2, 3));
+print("pi =", math_pi());
+
+print("\nTesting String Library:");
+print("upper('hello') =", str_upper("hello"));
+print("split('a,b,c', ',') =", str_split("a,b,c", ","));
+
+print("\nTesting Crypto Library:");
+print("md5('test') =", crypto_md5("test"));
+print("base64_encode('hello') =", crypto_base64_encode("hello"));
+
+print("\nNative libraries working!");

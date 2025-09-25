@@ -11,44 +11,56 @@ import (
 )
 
 type VM struct {
-    constants []object.Object
-    globals   []object.Object
+	constants []object.Object
+	globals   []object.Object
 
-    stack []object.Object
-    sp    int // points to next value, top = sp-1
+	stack []object.Object
+	sp    int // points to next value, top = sp-1
 
-    ip           int
-    instructions code.Instructions
-    bcMagic      string
-    bcVersion    string
-    debug        compiler.DebugInfo
+	ip           int
+	instructions code.Instructions
+	bcMagic      string
+	bcVersion    string
+	debug        compiler.DebugInfo
 
-    // Optional instruction budget (0 => unlimited). When >0, the VM will
-    // decrement per executed instruction and stop with an exception when it reaches 0.
-    instrBudget int
-    
-    // JIT compiler for hot path optimization
-    jit *JITCompiler
+	// Optional instruction budget (0 => unlimited). When >0, the VM will
+	// decrement per executed instruction and stop with an exception when it reaches 0.
+	instrBudget int
+
+	// JIT compiler for hot path optimization
+	jit *JITCompiler
+}
+
+func (vm *VM) compareOp(op code.Opcode) object.Object {
+	left, right, errObj := vm.popTwo()
+	if errObj != nil {
+		return errObj
+	}
+	res := vm.execCompare(op, left, right)
+	if isError(res) {
+		return res
+	}
+	return vm.pushChecked(res)
 }
 
 const (
-	StackSize   = 2048
+	StackSize    = 2048
 	InitialGlobs = 1024
 )
 
 func New(bc *compiler.Bytecode) *VM {
-    vm := &VM{
-        constants:    bc.Constants,
-        globals:      make([]object.Object, InitialGlobs),
-        stack:        make([]object.Object, StackSize),
-        instructions: bc.Instructions,
-        ip:           0,
-        bcMagic:      bc.Magic,
-        bcVersion:    bc.Version,
-        debug:        bc.Debug,
-        jit:          NewJITCompiler(),
-    }
-    return vm
+	vm := &VM{
+		constants:    bc.Constants,
+		globals:      make([]object.Object, InitialGlobs),
+		stack:        make([]object.Object, StackSize),
+		instructions: bc.Instructions,
+		ip:           0,
+		bcMagic:      bc.Magic,
+		bcVersion:    bc.Version,
+		debug:        bc.Debug,
+		jit:          NewJITCompiler(),
+	}
+	return vm
 }
 
 // A value <= 0 disables the budget (unlimited).
@@ -97,6 +109,49 @@ func (vm *VM) pop() object.Object {
 	return obj
 }
 
+func (vm *VM) popChecked() (object.Object, object.Object) {
+	obj := vm.pop()
+	if isError(obj) {
+		return nil, obj
+	}
+	return obj, nil
+}
+
+func (vm *VM) popTwo() (object.Object, object.Object, object.Object) {
+	right, err := vm.popChecked()
+	if err != nil {
+		return nil, nil, err
+	}
+	left, err := vm.popChecked()
+	if err != nil {
+		return nil, nil, err
+	}
+	return left, right, nil
+}
+
+func (vm *VM) popThree() (object.Object, object.Object, object.Object, object.Object) {
+	third, err := vm.popChecked()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	second, err := vm.popChecked()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	first, err := vm.popChecked()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return first, second, third, nil
+}
+
+func (vm *VM) pushChecked(obj object.Object) object.Object {
+	if err := vm.push(obj); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (vm *VM) Run() object.Object {
 	if vm.bcMagic != "" && vm.bcMagic != compiler.BytecodeMagic {
 		return object.NewError("invalid bytecode: magic mismatch")
@@ -111,13 +166,13 @@ func (vm *VM) Run() object.Object {
 				return object.NewExceptionSignal(ex)
 			}
 		}
-		
+
 		// JIT compilation: Record execution and detect hot paths
 		if vm.jit.RecordExecution(vm.ip) {
 			// New hot path detected - for now just log it
 			// In a full implementation, we would compile and optimize here
 		}
-		
+
 		op := code.Opcode(vm.instructions[vm.ip])
 		switch op {
 		case code.OpNop:
@@ -125,61 +180,68 @@ func (vm *VM) Run() object.Object {
 		case code.OpConstant:
 			operand := readUint16(vm.instructions[vm.ip+1:])
 			vm.ip += 2
-			vm.stack[vm.sp] = vm.constants[operand]
-			vm.sp++
+			if errObj := vm.pushChecked(vm.constants[operand]); errObj != nil {
+				return errObj
+			}
 		case code.OpAdd, code.OpSub, code.OpMul, code.OpDiv, code.OpMod:
-			right := vm.pop()
-			left := vm.pop()
-			res := vm.execBinary(op, left, right)
-			if isError(res) {
-				return res
+			if errObj := vm.binaryOp(op); errObj != nil {
+				return errObj
 			}
-			vm.stack[vm.sp] = res
-			vm.sp++
 		case code.OpEqual, code.OpNotEqual, code.OpGreaterThan, code.OpLessThan, code.OpGreaterEqual, code.OpLessEqual:
-			right := vm.pop()
-			left := vm.pop()
-			res := vm.execCompare(op, left, right)
-			if isError(res) {
-				return res
+			if errObj := vm.compareOp(op); errObj != nil {
+				return errObj
 			}
-			vm.stack[vm.sp] = res
-			vm.sp++
 		case code.OpMinus:
-			operand := vm.pop()
+			operand, errObj := vm.popChecked()
+			if errObj != nil {
+				return errObj
+			}
 			res := vm.execMinus(operand)
 			if isError(res) {
 				return res
 			}
-			vm.stack[vm.sp] = res
-			vm.sp++
+			if errObj := vm.pushChecked(res); errObj != nil {
+				return errObj
+			}
 		case code.OpBang:
-			operand := vm.pop()
+			operand, errObj := vm.popChecked()
+			if errObj != nil {
+				return errObj
+			}
 			res := nativeBoolToBooleanObject(!isTruthy(operand))
-			vm.stack[vm.sp] = res
-			vm.sp++
+			if errObj := vm.pushChecked(res); errObj != nil {
+				return errObj
+			}
 		case code.OpTrue:
-			vm.stack[vm.sp] = object.TRUE
-			vm.sp++
+			if errObj := vm.pushChecked(object.TRUE); errObj != nil {
+				return errObj
+			}
 		case code.OpFalse:
-			vm.stack[vm.sp] = object.FALSE
-			vm.sp++
+			if errObj := vm.pushChecked(object.FALSE); errObj != nil {
+				return errObj
+			}
 		case code.OpNull:
-			vm.stack[vm.sp] = object.NULL
-			vm.sp++
+			if errObj := vm.pushChecked(object.NULL); errObj != nil {
+				return errObj
+			}
 		case code.OpPop:
-			_ = vm.pop()
+			if _, errObj := vm.popChecked(); errObj != nil {
+				return errObj
+			}
 		case code.OpSetGlobal:
 			idx := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
-			val := vm.pop()
+			val, errObj := vm.popChecked()
+			if errObj != nil {
+				return errObj
+			}
 			vm.setGlobal(idx, val)
 		case code.OpGetGlobal:
 			idx := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
-			val := vm.getGlobal(idx)
-			vm.stack[vm.sp] = val
-			vm.sp++
+			if errObj := vm.pushChecked(vm.getGlobal(idx)); errObj != nil {
+				return errObj
+			}
 		case code.OpPrint:
 			argc := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
@@ -189,25 +251,33 @@ func (vm *VM) Run() object.Object {
 			start := vm.sp - argc
 			var b strings.Builder
 			for i := start; i < vm.sp; i++ {
-				if i > start { b.WriteByte(' ') }
+				if i > start {
+					b.WriteByte(' ')
+				}
 				b.WriteString(vm.stack[i].Inspect())
 			}
 			out := b.String()
 			// pop argc items
-			for i := start; i < vm.sp; i++ { vm.stack[i] = nil }
+			for i := start; i < vm.sp; i++ {
+				vm.stack[i] = nil
+			}
 			vm.sp = start
 			// faster stdout write than fmt.Println
 			_, _ = io.WriteString(os.Stdout, out)
 			_, _ = io.WriteString(os.Stdout, "\n")
-			vm.stack[vm.sp] = object.NULL
-			vm.sp++
+			if errObj := vm.pushChecked(object.NULL); errObj != nil {
+				return errObj
+			}
 		case code.OpJump:
 			pos := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip = pos - 1
 		case code.OpJumpNotTruthy:
 			pos := int(readUint16(vm.instructions[vm.ip+1:]))
 			vm.ip += 2
-			cond := vm.pop()
+			cond, errObj := vm.popChecked()
+			if errObj != nil {
+				return errObj
+			}
 			if !isTruthy(cond) {
 				vm.ip = pos - 1
 			}
@@ -216,37 +286,64 @@ func (vm *VM) Run() object.Object {
 			vm.ip += 2
 			elements := make([]object.Object, numElements)
 			for i := numElements - 1; i >= 0; i-- {
-				elements[i] = vm.pop()
+				elem, errObj := vm.popChecked()
+				if errObj != nil {
+					return errObj
+				}
+				elements[i] = elem
 			}
-			arr := object.NewArrayFromPool(elements)
-			vm.stack[vm.sp] = arr
-			vm.sp++
+			if errObj := vm.pushChecked(object.NewArrayFromPool(elements)); errObj != nil {
+				return errObj
+			}
 		case code.OpIndex:
-			index := vm.pop()
-			left := vm.pop()
+			left, index, errObj := vm.popTwo()
+			if errObj != nil {
+				return errObj
+			}
 			res := vm.execIndex(left, index)
 			if isError(res) {
 				return res
 			}
-			vm.stack[vm.sp] = res
-			vm.sp++
+			if errObj := vm.pushChecked(res); errObj != nil {
+				return errObj
+			}
+		case code.OpSetIndex:
+			target, index, value, errObj := vm.popThree()
+			if errObj != nil {
+				return errObj
+			}
+			if err := vm.execSetIndex(target, index, value); err != nil {
+				return err
+			}
+			if errObj := vm.pushChecked(object.NULL); errObj != nil {
+				return errObj
+			}
 		case code.OpLen:
-			operand := vm.pop()
+			operand, errObj := vm.popChecked()
+			if errObj != nil {
+				return errObj
+			}
 			res := vm.execLen(operand)
 			if isError(res) {
 				return res
 			}
-			vm.stack[vm.sp] = res
-			vm.sp++
+			if errObj := vm.pushChecked(res); errObj != nil {
+				return errObj
+			}
 		case code.OpType:
-			operand := vm.pop()
+			operand, errObj := vm.popChecked()
+			if errObj != nil {
+				return errObj
+			}
 			res := vm.execType(operand)
-			vm.stack[vm.sp] = res
-			vm.sp++
+			if errObj := vm.pushChecked(res); errObj != nil {
+				return errObj
+			}
 		default:
 			return vm.errorWithLoc("unknown opcode %d", op)
 		}
 	}
+
 	return object.NULL
 }
 
@@ -287,7 +384,7 @@ func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Objec
 			}
 		}
 	}
-	
+
 	// Fast path for floats
 	if l, ok := left.(*object.Float); ok {
 		if r, ok := right.(*object.Float); ok {
@@ -303,7 +400,7 @@ func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Objec
 			}
 		}
 	}
-	
+
 	// Fast path for strings (concatenation)
 	if op == code.OpAdd {
 		if l, ok := left.(*object.String); ok {
@@ -312,8 +409,20 @@ func (vm *VM) execBinary(op code.Opcode, left, right object.Object) object.Objec
 			}
 		}
 	}
-	
+
 	return vm.errorWithLoc("unsupported operands for binary op: %s and %s", left.Type(), right.Type())
+}
+
+func (vm *VM) binaryOp(op code.Opcode) object.Object {
+	left, right, errObj := vm.popTwo()
+	if errObj != nil {
+		return errObj
+	}
+	res := vm.execBinary(op, left, right)
+	if isError(res) {
+		return res
+	}
+	return vm.pushChecked(res)
 }
 
 func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Object {
@@ -336,7 +445,7 @@ func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Obje
 			}
 		}
 	}
-	
+
 	// Fast path for floats
 	if l, ok := left.(*object.Float); ok {
 		if r, ok := right.(*object.Float); ok {
@@ -356,7 +465,7 @@ func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Obje
 			}
 		}
 	}
-	
+
 	// Fast path for strings
 	if l, ok := left.(*object.String); ok {
 		if r, ok := right.(*object.String); ok {
@@ -376,7 +485,7 @@ func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Obje
 			}
 		}
 	}
-	
+
 	// Fast path for booleans
 	if l, ok := left.(*object.Boolean); ok {
 		if r, ok := right.(*object.Boolean); ok {
@@ -388,7 +497,7 @@ func (vm *VM) execCompare(op code.Opcode, left, right object.Object) object.Obje
 			}
 		}
 	}
-	
+
 	return vm.errorWithLoc("unsupported operands for compare: %s and %s", left.Type(), right.Type())
 }
 
@@ -462,6 +571,43 @@ func (vm *VM) execStringIndex(str, index object.Object) object.Object {
 	}
 
 	return object.NewStringFromPool(string(stringObject.Value[idx]))
+}
+
+func (vm *VM) execSetIndex(target, index, value object.Object) object.Object {
+	switch obj := target.(type) {
+	case *object.Array:
+		idx, ok := index.(*object.Integer)
+		if !ok {
+			return vm.errorWithLoc("array index must be integer, got %s", index.Type())
+		}
+		if idx.Value < 0 || int(idx.Value) >= len(obj.Elements) {
+			ex := object.NewException(object.INDEX_ERROR, fmt.Sprintf("array index out of range: %d", idx.Value))
+			ex.StackTrace = vm.buildStackTrace()
+			return object.NewExceptionSignal(ex)
+		}
+		obj.Elements[int(idx.Value)] = value
+		return nil
+	case *object.Hash:
+		hashKey, ok := index.(object.Hashable)
+		if !ok {
+			return vm.errorWithLoc("unusable as hash key: %s", index.Type())
+		}
+		obj.Pairs[hashKey.HashKey()] = object.HashPair{Key: index, Value: value}
+		return nil
+	case *object.Map:
+		// replace existing key if equal, otherwise add
+		for k := range obj.Pairs {
+			if object.Equals(k, index) {
+				delete(obj.Pairs, k)
+				obj.Pairs[index] = value
+				return nil
+			}
+		}
+		obj.Pairs[index] = value
+		return nil
+	default:
+		return vm.errorWithLoc("index assignment not supported: %s", target.Type())
+	}
 }
 
 func (vm *VM) execLen(obj object.Object) object.Object {
@@ -553,7 +699,14 @@ func (vm *VM) currentFrame() *object.StackFrame {
 	if file == "" && line == 0 && col == 0 {
 		return nil
 	}
-	return &object.StackFrame{Function: fn, File: file, Line: line, Column: col}
+	return &object.StackFrame{
+		FunctionName: fn,
+		Position: object.Position{
+			Filename: file,
+			Line:     line,
+			Column:   col,
+		},
+	}
 }
 
 // lookupDebug finds the closest debug entry at or before ip

@@ -134,20 +134,36 @@ func ReadOperands(def *Definition, ins Instructions) ([]int, int) {
 	return operands, offset
 }
 
+func (ins Instructions) decodeAt(offset int) (*Definition, []int, int, error) {
+	if offset >= len(ins) {
+		return nil, nil, 0, fmt.Errorf("instruction offset %d out of range", offset)
+	}
+
+	op := Opcode(ins[offset])
+	def, ok := Lookup(op)
+	if !ok {
+		return nil, nil, 1, fmt.Errorf("unknown opcode %d", op)
+	}
+
+	operands, read := ReadOperands(def, ins[offset+1:])
+	return def, operands, 1 + read, nil
+}
+
 func (ins Instructions) String() string {
 	var out strings.Builder
-	i := 0
-	for i < len(ins) {
-		op := Opcode(ins[i])
-		def, ok := Lookup(op)
-		if !ok {
-			fmt.Fprintf(&out, "ERROR: unknown opcode %d\n", op)
-			i++
+	for offset := 0; offset < len(ins); {
+		def, operands, width, err := ins.decodeAt(offset)
+		if err != nil {
+			fmt.Fprintf(&out, "ERROR: %s\n", err)
+			if width == 0 {
+				offset++
+			} else {
+				offset += width
+			}
 			continue
 		}
-		operands, read := ReadOperands(def, ins[i+1:])
-		fmt.Fprintf(&out, "%04d %s\n", i, ins.fmtInstruction(def, operands))
-		i += 1 + read
+		fmt.Fprintf(&out, "%04d %s\n", offset, ins.fmtInstruction(def, operands))
+		offset += width
 	}
 	return out.String()
 }

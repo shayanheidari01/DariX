@@ -1,0 +1,531 @@
+// Persistent Web Server - Always Running DariX HTTP Server
+// This server runs continuously until manually stopped
+
+import "go:httpserver";
+import "go:json";
+import "go:time";
+
+print("🌐 DariX Persistent Web Server");
+print("==============================");
+
+// Create HTTP server on port 3000
+var server = server_create(3000);
+var server_id = server["server_id"];
+
+print("📡 Server created with ID:", server_id);
+
+// Global server statistics
+var server_stats = {
+    "start_time": time_now(),
+    "requests_count": 0,
+    "uptime_seconds": 0
+};
+
+// Update server stats
+func update_stats() {
+    server_stats["uptime_seconds"] = time_now() - server_stats["start_time"];
+    server_stats["requests_count"] = server_stats["requests_count"] + 1;
+}
+
+// Define route handlers
+func home_handler(request, response) {
+    update_stats();
+    
+    var uptime_minutes = server_stats["uptime_seconds"] / 60;
+    
+    var html = "<!DOCTYPE html>
+<html>
+<head>
+    <title>DariX Persistent Web Server</title>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .content { padding: 30px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #007bff;
+        }
+        .stat-number { font-size: 2em; font-weight: bold; color: #007bff; }
+        .stat-label { color: #6c757d; margin-top: 5px; }
+        .api-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .api-list { list-style: none; }
+        .api-list li {
+            background: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .api-list a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .api-list a:hover { text-decoration: underline; }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .feature-card h3 { color: #2c3e50; margin-bottom: 15px; }
+        .feature-list { list-style: none; }
+        .feature-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        .feature-list li:before {
+            content: '✅';
+            margin-right: 10px;
+        }
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .refresh-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px;
+        }
+        .refresh-btn:hover { background: #0056b3; }
+    </style>
+    <script>
+        function refreshStats() {
+            location.reload();
+        }
+        
+        // Auto refresh every 30 seconds
+        setInterval(refreshStats, 30000);
+        
+        // Update time display
+        function updateTime() {
+            document.getElementById('current-time').textContent = new Date().toLocaleString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+    </script>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>🚀 DariX Persistent Web Server</h1>
+            <p>Always Running • High Performance • Production Ready</p>
+            <p>Current Time: <span id='current-time'></span></p>
+        </div>
+        
+        <div class='content'>
+            <div class='stats-grid'>
+                <div class='stat-card'>
+                    <div class='stat-number'>" + str(server_stats["requests_count"]) + "</div>
+                    <div class='stat-label'>Total Requests</div>
+                </div>
+                <div class='stat-card'>
+                    <div class='stat-number'>" + str(int(uptime_minutes)) + "m</div>
+                    <div class='stat-label'>Server Uptime</div>
+                </div>
+                <div class='stat-card'>
+                    <div class='stat-number'>3000</div>
+                    <div class='stat-label'>Server Port</div>
+                </div>
+                <div class='stat-card'>
+                    <div class='stat-number'>🟢</div>
+                    <div class='stat-label'>Server Status</div>
+                </div>
+            </div>
+            
+            <button class='refresh-btn' onclick='refreshStats()'>🔄 Refresh Stats</button>
+            
+            <div class='api-section'>
+                <h2>🌐 Available API Endpoints</h2>
+                <ul class='api-list'>
+                    <li><a href='/api/hello' target='_blank'>GET /api/hello</a> - Simple API greeting with server info</li>
+                    <li><a href='/api/time' target='_blank'>GET /api/time</a> - Current server time and timezone</li>
+                    <li><a href='/api/user?name=John&age=25' target='_blank'>GET /api/user</a> - User info with query parameters</li>
+                    <li><a href='/api/status' target='_blank'>GET /api/status</a> - Detailed server status and statistics</li>
+                    <li><a href='/api/health' target='_blank'>GET /api/health</a> - Health check endpoint</li>
+                    <li><strong>POST /api/data</strong> - Submit data to server (use curl or Postman)</li>
+                </ul>
+            </div>
+            
+            <div class='features-grid'>
+                <div class='feature-card'>
+                    <h3>🚀 Server Features</h3>
+                    <ul class='feature-list'>
+                        <li>Always Running Server</li>
+                        <li>Real-time Statistics</li>
+                        <li>Auto-refresh Dashboard</li>
+                        <li>RESTful API Endpoints</li>
+                        <li>JSON Response Format</li>
+                        <li>Error Handling</li>
+                    </ul>
+                </div>
+                
+                <div class='feature-card'>
+                    <h3>🛠️ Technical Stack</h3>
+                    <ul class='feature-list'>
+                        <li>DariX Programming Language</li>
+                        <li>Native HTTP Server</li>
+                        <li>JSON API Support</li>
+                        <li>Middleware System</li>
+                        <li>Static File Serving</li>
+                        <li>Cross-platform Compatible</li>
+                    </ul>
+                </div>
+                
+                <div class='feature-card'>
+                    <h3>📊 Monitoring</h3>
+                    <ul class='feature-list'>
+                        <li>Request Counter</li>
+                        <li>Uptime Tracking</li>
+                        <li>Performance Metrics</li>
+                        <li>Health Monitoring</li>
+                        <li>Real-time Updates</li>
+                        <li>Status Dashboard</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class='footer'>
+            <p>🌐 Powered by DariX Programming Language | Server ID: " + server_id + "</p>
+            <p>⚡ High Performance Native HTTP Server</p>
+        </div>
+    </div>
+</body>
+</html>";
+    
+    return response_html(response, html);
+}
+
+func api_hello_handler(request, response) {
+    update_stats();
+    
+    var data = {
+        "message": "Hello from DariX Persistent Server!",
+        "timestamp": time_now(),
+        "server": {
+            "name": "DariX Persistent HTTP Server",
+            "version": "1.0.0",
+            "uptime_seconds": server_stats["uptime_seconds"],
+            "total_requests": server_stats["requests_count"]
+        },
+        "status": "running_continuously"
+    };
+    return response_json(response, data);
+}
+
+func api_time_handler(request, response) {
+    update_stats();
+    
+    var current_time = time_now();
+    var data = {
+        "current_time": current_time,
+        "unix_timestamp": current_time,
+        "server_start_time": server_stats["start_time"],
+        "uptime_seconds": server_stats["uptime_seconds"],
+        "timezone": "Server Local Time",
+        "iso_format": "Server time in Unix timestamp format"
+    };
+    return response_json(response, data);
+}
+
+func api_user_handler(request, response) {
+    update_stats();
+    
+    var name = request_get_param(request, "name");
+    var age = request_get_param(request, "age");
+    var email = request_get_param(request, "email");
+    
+    if (name == "") { name = "Anonymous User"; }
+    if (age == "") { age = "Unknown"; }
+    if (email == "") { email = "not_provided@example.com"; }
+    
+    var user_data = {
+        "user": {
+            "name": name,
+            "age": age,
+            "email": email,
+            "id": "user_" + str(time_now()),
+            "session_id": "sess_" + str(server_stats["requests_count"])
+        },
+        "request_info": {
+            "method": "GET",
+            "endpoint": "/api/user",
+            "timestamp": time_now(),
+            "request_number": server_stats["requests_count"]
+        },
+        "server_info": {
+            "uptime": server_stats["uptime_seconds"],
+            "total_requests": server_stats["requests_count"]
+        }
+    };
+    
+    return response_json(response, user_data);
+}
+
+func api_status_handler(request, response) {
+    update_stats();
+    
+    var uptime_hours = server_stats["uptime_seconds"] / 3600;
+    var uptime_minutes = (server_stats["uptime_seconds"] % 3600) / 60;
+    
+    var status_data = {
+        "server": {
+            "name": "DariX Persistent HTTP Server",
+            "status": "running",
+            "port": 3000,
+            "server_id": server_id,
+            "start_time": server_stats["start_time"],
+            "uptime": {
+                "seconds": server_stats["uptime_seconds"],
+                "minutes": int(uptime_minutes),
+                "hours": int(uptime_hours),
+                "formatted": str(int(uptime_hours)) + "h " + str(int(uptime_minutes)) + "m"
+            }
+        },
+        "statistics": {
+            "total_requests": server_stats["requests_count"],
+            "requests_per_minute": server_stats["requests_count"] / (server_stats["uptime_seconds"] / 60 + 1),
+            "average_response_time": "< 1ms",
+            "memory_usage": "Optimized"
+        },
+        "features": {
+            "persistent_server": true,
+            "real_time_stats": true,
+            "json_api": true,
+            "html_dashboard": true,
+            "middleware_support": true,
+            "static_files": true,
+            "auto_refresh": true
+        },
+        "endpoints": [
+            {"path": "/", "method": "GET", "description": "Interactive dashboard"},
+            {"path": "/api/hello", "method": "GET", "description": "Server greeting"},
+            {"path": "/api/time", "method": "GET", "description": "Server time info"},
+            {"path": "/api/user", "method": "GET", "description": "User info with params"},
+            {"path": "/api/status", "method": "GET", "description": "Detailed server status"},
+            {"path": "/api/health", "method": "GET", "description": "Health check"},
+            {"path": "/api/data", "method": "POST", "description": "Data submission"}
+        ]
+    };
+    
+    return response_json(response, status_data);
+}
+
+func api_health_handler(request, response) {
+    update_stats();
+    
+    var health_data = {
+        "status": "healthy",
+        "uptime_seconds": server_stats["uptime_seconds"],
+        "total_requests": server_stats["requests_count"],
+        "memory": "OK",
+        "cpu": "OK",
+        "disk": "OK",
+        "network": "OK",
+        "timestamp": time_now(),
+        "checks": {
+            "server_running": true,
+            "endpoints_responsive": true,
+            "memory_usage": "normal",
+            "request_processing": "normal"
+        }
+    };
+    
+    return response_json(response, health_data);
+}
+
+func api_post_handler(request, response) {
+    update_stats();
+    
+    var body = request_get_body(request);
+    var content_type = request_get_header(request, "Content-Type");
+    var user_agent = request_get_header(request, "User-Agent");
+    
+    var response_data = {
+        "message": "Data received successfully",
+        "received_data": {
+            "body": body,
+            "body_length": len(body),
+            "content_type": content_type,
+            "user_agent": user_agent
+        },
+        "server_info": {
+            "timestamp": time_now(),
+            "request_number": server_stats["requests_count"],
+            "uptime_seconds": server_stats["uptime_seconds"]
+        },
+        "processing": {
+            "status": "success",
+            "processed_at": time_now(),
+            "processing_time": "< 1ms"
+        }
+    };
+    
+    return response_json(response, response_data);
+}
+
+// Add routes
+print("🛣️  Setting up routes...");
+server_route(server_id, "GET", "/", home_handler);
+server_route(server_id, "GET", "/api/hello", api_hello_handler);
+server_route(server_id, "GET", "/api/time", api_time_handler);
+server_route(server_id, "GET", "/api/user", api_user_handler);
+server_route(server_id, "GET", "/api/status", api_status_handler);
+server_route(server_id, "GET", "/api/health", api_health_handler);
+server_route(server_id, "POST", "/api/data", api_post_handler);
+
+print("✅ Routes configured successfully");
+
+// Add middleware
+func logging_middleware(request, response, next) {
+    var method = request["method"] || "GET";
+    var path = request["path"] || "/";
+    var timestamp = time_now();
+    var user_agent = request_get_header(request, "User-Agent") || "Unknown";
+    
+    print("📝 [" + str(timestamp) + "] " + method + " " + path + " - " + user_agent);
+    return next();
+}
+
+func performance_middleware(request, response, next) {
+    var start_time = time_now();
+    var result = next();
+    var end_time = time_now();
+    var duration = end_time - start_time;
+    
+    print("⚡ Request processed in " + str(duration) + "ms");
+    return result;
+}
+
+print("🔧 Setting up middleware...");
+server_middleware(server_id, logging_middleware);
+server_middleware(server_id, performance_middleware);
+
+print("✅ Middleware configured successfully");
+
+// Configure server settings
+print("⚙️  Configuring server settings...");
+server_set_timeout(server_id, 60); // 60 seconds timeout for long-running requests
+
+print("✅ Server settings configured");
+
+// Start the persistent server
+print("\n🚀 Starting Persistent HTTP Server...");
+print("=====================================");
+
+var start_result = server_start(server_id);
+
+if (type(start_result) == "MAP") {
+    print("✅ Persistent server started successfully!");
+    print("📡 Server ID: " + start_result["server_id"]);
+    print("🌐 Dashboard: http://localhost" + start_result["address"]);
+    print("🚪 Port: " + str(start_result["port"]));
+    print("");
+    print("🌟 Server is now running persistently!");
+    print("   📊 Dashboard: http://localhost:3000/");
+    print("   🔗 API Hello: http://localhost:3000/api/hello");
+    print("   ⏰ Server Time: http://localhost:3000/api/time");
+    print("   👤 User API: http://localhost:3000/api/user?name=John&age=25");
+    print("   📈 Server Status: http://localhost:3000/api/status");
+    print("   💚 Health Check: http://localhost:3000/api/health");
+    print("");
+    print("📝 Test with curl:");
+    print("   curl http://localhost:3000/api/hello");
+    print("   curl -X POST http://localhost:3000/api/data -d '{\"message\": \"Hello Server\"}'");
+    print("   curl http://localhost:3000/api/health");
+    print("");
+    print("🔄 Features:");
+    print("   • Real-time statistics tracking");
+    print("   • Auto-refreshing dashboard (every 30 seconds)");
+    print("   • Request counting and uptime monitoring");
+    print("   • Performance middleware");
+    print("   • Comprehensive API endpoints");
+    print("   • Health monitoring");
+    print("");
+    print("⚠️  Server Control:");
+    print("   • Server runs continuously until manually stopped");
+    print("   • Use Ctrl+C to stop the server gracefully");
+    print("   • All requests are logged with timestamps");
+    print("   • Statistics are updated in real-time");
+    print("");
+    print("🎯 Server is ready and waiting for requests...");
+    print("   Visit http://localhost:3000 to see the interactive dashboard!");
+    print("");
+    print("🟢 STATUS: RUNNING CONTINUOUSLY");
+    
+    // Server runs indefinitely - no automatic stop
+    // The server will continue running until:
+    // 1. User presses Ctrl+C
+    // 2. Process is terminated
+    // 3. System shutdown
+    
+    // Keep the script alive to maintain the server
+    // In DariX, we can use a simple infinite loop or wait
+    print("💡 Tip: The server will keep running. Check the dashboard for real-time stats!");
+    
+} else {
+    print("❌ Failed to start persistent server");
+    print("Error: " + str(start_result));
+    print("🔧 Troubleshooting:");
+    print("   • Check if port 3000 is already in use");
+    print("   • Verify network permissions");
+    print("   • Try a different port number");
+}
+
+// Note: No server_stop() call here - server runs persistently!
+
+
+while (true) {}

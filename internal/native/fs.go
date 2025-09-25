@@ -7,76 +7,116 @@ import (
 
 func init() {
 	Register("fs", map[string]*object.Builtin{
-		"fs_read":  {Fn: fsRead},
-		"fs_write": {Fn: fsWrite},
+		"fs_read":   {Fn: fsRead},
+		"fs_write":  {Fn: fsWrite},
 		"fs_exists": {Fn: fsExists},
 	})
 }
 
-func fsRead(args ...object.Object) object.Object {
-	if len(args) != 1 {
-		return object.NewError("fs_read: expected 1 argument, got %d", len(args))
+func requireArgs(name string, args []object.Object, expected int) object.Object {
+	if len(args) != expected {
+		return object.NewError("%s: expected %d argument, got %d", name, expected, len(args))
 	}
-	path, ok := args[0].(*object.String)
+	return nil
+}
+
+func requireStringArg(name, label string, value object.Object) (*object.String, object.Object) {
+	str, ok := value.(*object.String)
 	if !ok {
-		return object.NewError("fs_read: path must be string, got %s", args[0].Type())
+		return nil, object.NewError("%s: %s must be string, got %s", name, label, value.Type())
 	}
-	if !ModuleAllowed("fs") {
-		return object.NewError("fs_read: access to native module fs denied by policy")
+	return str, nil
+}
+
+func ensureModuleAllowed(name, module string) object.Object {
+	if !ModuleAllowed(module) {
+		return object.NewError("%s: access to native module %s denied by policy", name, module)
 	}
-	abs, ok2 := sanitizePath(path.Value)
-	if !ok2 {
-		return object.NewError("fs_read: access outside allowed root")
+	return nil
+}
+
+func ensureWritable(name string) object.Object {
+	if GetPolicy().FSReadOnly {
+		return object.NewError("%s: filesystem is read-only by policy", name)
+	}
+	return nil
+}
+
+func resolveFSPath(name, path string) (string, object.Object) {
+	abs, ok := sanitizePath(path)
+	if !ok {
+		return "", object.NewError("%s: access outside allowed root", name)
+	}
+	return abs, nil
+}
+
+func fsRead(args ...object.Object) object.Object {
+	const name = "fs_read"
+	if errObj := requireArgs(name, args, 1); errObj != nil {
+		return errObj
+	}
+	path, errObj := requireStringArg(name, "path", args[0])
+	if errObj != nil {
+		return errObj
+	}
+	if errObj := ensureModuleAllowed(name, "fs"); errObj != nil {
+		return errObj
+	}
+	abs, errObj := resolveFSPath(name, path.Value)
+	if errObj != nil {
+		return errObj
 	}
 	data, err := os.ReadFile(abs)
 	if err != nil {
-		return object.NewError("fs_read: %s", err)
+		return object.NewError("%s: %s", name, err)
 	}
 	return object.NewString(string(data))
 }
 
 func fsWrite(args ...object.Object) object.Object {
-	if len(args) != 2 {
-		return object.NewError("fs_write: expected 2 arguments, got %d", len(args))
+	const name = "fs_write"
+	if errObj := requireArgs(name, args, 2); errObj != nil {
+		return errObj
 	}
-	path, ok := args[0].(*object.String)
-	if !ok {
-		return object.NewError("fs_write: path must be string, got %s", args[0].Type())
+	path, errObj := requireStringArg(name, "path", args[0])
+	if errObj != nil {
+		return errObj
 	}
-	data, ok := args[1].(*object.String)
-	if !ok {
-		return object.NewError("fs_write: data must be string, got %s", args[1].Type())
+	data, errObj := requireStringArg(name, "data", args[1])
+	if errObj != nil {
+		return errObj
 	}
-	if !ModuleAllowed("fs") {
-		return object.NewError("fs_write: access to native module fs denied by policy")
+	if errObj := ensureModuleAllowed(name, "fs"); errObj != nil {
+		return errObj
 	}
-	if GetPolicy().FSReadOnly {
-		return object.NewError("fs_write: filesystem is read-only by policy")
+	if errObj := ensureWritable(name); errObj != nil {
+		return errObj
 	}
-	abs, ok2 := sanitizePath(path.Value)
-	if !ok2 {
-		return object.NewError("fs_write: access outside allowed root")
+	abs, errObj := resolveFSPath(name, path.Value)
+	if errObj != nil {
+		return errObj
 	}
-	if err := os.WriteFile(abs, []byte(data.Value), 0644); err != nil {
-		return object.NewError("fs_write: %s", err)
+	if err := os.WriteFile(abs, []byte(data.Value), 0o644); err != nil {
+		return object.NewError("%s: %s", name, err)
 	}
 	return object.TRUE
 }
 
 func fsExists(args ...object.Object) object.Object {
-	if len(args) != 1 {
-		return object.NewError("fs_exists: expected 1 argument, got %d", len(args))
+	const name = "fs_exists"
+	if errObj := requireArgs(name, args, 1); errObj != nil {
+		return errObj
 	}
-	path, ok := args[0].(*object.String)
-	if !ok {
-		return object.NewError("fs_exists: path must be string, got %s", args[0].Type())
+	path, errObj := requireStringArg(name, "path", args[0])
+	if errObj != nil {
+		return errObj
 	}
-	if !ModuleAllowed("fs") {
-		return object.NewError("fs_exists: access to native module fs denied by policy")
+	if errObj := ensureModuleAllowed(name, "fs"); errObj != nil {
+		return errObj
 	}
-	abs, ok2 := sanitizePath(path.Value)
-	if !ok2 {
-		return object.NewError("fs_exists: access outside allowed root")
+	abs, errObj := resolveFSPath(name, path.Value)
+	if errObj != nil {
+		return errObj
 	}
 	_, err := os.Stat(abs)
 	if err == nil {
@@ -85,5 +125,5 @@ func fsExists(args ...object.Object) object.Object {
 	if os.IsNotExist(err) {
 		return object.FALSE
 	}
-	return object.NewError("fs_exists: %s", err)
+	return object.NewError("%s: %s", name, err)
 }

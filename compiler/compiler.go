@@ -3,8 +3,8 @@ package compiler
 import (
 	"darix/ast"
 	"darix/code"
-	"darix/object"
 	"darix/internal/version"
+	"darix/object"
 	"darix/token"
 	"fmt"
 )
@@ -150,21 +150,29 @@ func foldConstExpr(node ast.Node) (object.Object, bool) {
 		case "/":
 			if i1, ok := left.(*object.Integer); ok {
 				if i2, ok := right.(*object.Integer); ok {
-					if i2.Value == 0 { return nil, false }
+					if i2.Value == 0 {
+						return nil, false
+					}
 					return object.NewInteger(i1.Value / i2.Value), true
 				}
 				if f2, ok := right.(*object.Float); ok {
-					if f2.Value == 0 { return nil, false }
+					if f2.Value == 0 {
+						return nil, false
+					}
 					return object.NewFloat(float64(i1.Value) / f2.Value), true
 				}
 			}
 			if f1, ok := left.(*object.Float); ok {
 				if i2, ok := right.(*object.Integer); ok {
-					if i2.Value == 0 { return nil, false }
+					if i2.Value == 0 {
+						return nil, false
+					}
 					return object.NewFloat(f1.Value / float64(i2.Value)), true
 				}
 				if f2, ok := right.(*object.Float); ok {
-					if f2.Value == 0 { return nil, false }
+					if f2.Value == 0 {
+						return nil, false
+					}
 					return object.NewFloat(f1.Value / f2.Value), true
 				}
 			}
@@ -266,21 +274,74 @@ func foldConstExpr(node ast.Node) (object.Object, bool) {
 	return nil, false
 }
 
+func (c *Compiler) compileStatements(stmts []ast.Statement) error {
+	for _, stmt := range stmts {
+		if err := c.Compile(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Compiler) compileBlock(block *ast.BlockStatement) error {
+	if block == nil {
+		return nil
+	}
+	return c.compileStatements(block.Statements)
+}
+
+func (c *Compiler) compileExpressions(exprs []ast.Expression) error {
+	for _, expr := range exprs {
+		if err := c.Compile(expr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func requireArgCount(name string, args []ast.Expression, expected int) error {
+	if len(args) != expected {
+		return fmt.Errorf("%s: expected %d argument, got %d", name, expected, len(args))
+	}
+	return nil
+}
+
+func (c *Compiler) compileBuiltinCall(node *ast.CallExpression, name string) (bool, error) {
+	switch name {
+	case "print":
+		if err := c.compileExpressions(node.Arguments); err != nil {
+			return true, err
+		}
+		c.emitAt(node, code.OpPrint, len(node.Arguments))
+		return true, nil
+	case "len":
+		if err := requireArgCount("len", node.Arguments, 1); err != nil {
+			return true, err
+		}
+		if err := c.Compile(node.Arguments[0]); err != nil {
+			return true, err
+		}
+		c.emitAt(node, code.OpLen)
+		return true, nil
+	case "type":
+		if err := requireArgCount("type", node.Arguments, 1); err != nil {
+			return true, err
+		}
+		if err := c.Compile(node.Arguments[0]); err != nil {
+			return true, err
+		}
+		c.emitAt(node, code.OpType)
+		return true, nil
+	}
+	return false, nil
+}
+
 func (c *Compiler) Compile(node ast.Node) error {
 	switch n := node.(type) {
 	case *ast.Program:
-		for _, s := range n.Statements {
-			if err := c.Compile(s); err != nil {
-				return err
-			}
-		}
+		return c.compileStatements(n.Statements)
 	case *ast.BlockStatement:
-		for _, s := range n.Statements {
-			if err := c.Compile(s); err != nil {
-				return err
-			}
-		}
-		return nil
+		return c.compileStatements(n.Statements)
 	case *ast.ExpressionStatement:
 		if err := c.Compile(n.Expression); err != nil {
 			return err
@@ -303,6 +364,19 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 	case *ast.Null:
 		c.emitAt(n, code.OpNull)
+	case *ast.ArrayLiteral:
+		if err := c.compileExpressions(n.Elements); err != nil {
+			return err
+		}
+		c.emitAt(n, code.OpArray, len(n.Elements))
+	case *ast.IndexExpression:
+		if err := c.Compile(n.Left); err != nil {
+			return err
+		}
+		if err := c.Compile(n.Index); err != nil {
+			return err
+		}
+		c.emitAt(n, code.OpIndex)
 	case *ast.PrefixExpression:
 		// Constant folding
 		if obj, ok := foldConstExpr(n); ok {
@@ -394,20 +468,31 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		c.emitAt(n, code.OpGetGlobal, sym.Index)
 	case *ast.AssignStatement:
-		// Only identifier targets are supported for now
-		ident, ok := n.Target.(*ast.Identifier)
-		if !ok {
+		switch target := n.Target.(type) {
+		case *ast.Identifier:
+			if err := c.Compile(n.Value); err != nil {
+				return err
+			}
+			sym, ok := c.symbolTable.Resolve(target.Value)
+			if !ok {
+				// Implicit define if not defined yet
+				sym = c.symbolTable.Define(target.Value)
+			}
+			c.emitAt(n, code.OpSetGlobal, sym.Index)
+		case *ast.IndexExpression:
+			if err := c.Compile(target.Left); err != nil {
+				return err
+			}
+			if err := c.Compile(target.Index); err != nil {
+				return err
+			}
+			if err := c.Compile(n.Value); err != nil {
+				return err
+			}
+			c.emitAt(n, code.OpSetIndex)
+		default:
 			return ErrUnsupportedFeature
 		}
-		if err := c.Compile(n.Value); err != nil {
-			return err
-		}
-		sym, ok := c.symbolTable.Resolve(ident.Value)
-		if !ok {
-			// Implicit define if not defined yet
-			sym = c.symbolTable.Define(ident.Value)
-		}
-		c.emitAt(n, code.OpSetGlobal, sym.Index)
 	case *ast.IfExpression:
 		// condition
 		if err := c.Compile(n.Condition); err != nil {
@@ -416,7 +501,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// jump if not truthy to else (or end)
 		jntPos := c.emitAt(n, code.OpJumpNotTruthy, 9999)
 		// consequence
-		if err := c.Compile(n.Consequence); err != nil {
+		if err := c.compileBlock(n.Consequence); err != nil {
 			return err
 		}
 		// jump to end
@@ -441,10 +526,8 @@ func (c *Compiler) Compile(node ast.Node) error {
 		// jump out if not truthy
 		jntPos := c.emitAt(n, code.OpJumpNotTruthy, 9999)
 		// body
-		if n.Body != nil {
-			if err := c.Compile(n.Body); err != nil {
-				return err
-			}
+		if err := c.compileBlock(n.Body); err != nil {
+			return err
 		}
 		// jump back to condition
 		c.emitAt(n, code.OpJump, condPos)
@@ -452,16 +535,11 @@ func (c *Compiler) Compile(node ast.Node) error {
 		c.replaceOperand(jntPos, len(c.instructions))
 		return nil
 	case *ast.CallExpression:
-		// Only support builtin print(...) for now
-		if ident, ok := n.Function.(*ast.Identifier); ok && ident.Value == "print" {
-			argc := len(n.Arguments)
-			for _, a := range n.Arguments {
-				if err := c.Compile(a); err != nil {
-					return err
-				}
+		if ident, ok := n.Function.(*ast.Identifier); ok {
+			handled, err := c.compileBuiltinCall(n, ident.Value)
+			if handled {
+				return err
 			}
-			c.emitAt(n, code.OpPrint, argc)
-			return nil
 		}
 		return ErrUnsupportedFeature
 	default:
@@ -472,12 +550,8 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 func (c *Compiler) replaceOperand(pos int, operand int) {
 	op := code.Opcode(c.instructions[pos])
-	def, _ := code.Lookup(op)
-	operands, _ := code.ReadOperands(def, c.instructions[pos+1:])
-	// write new operand
 	ins := code.Make(op, operand)
 	c.replaceInstruction(pos, ins)
-	_ = operands
 }
 
 func (c *Compiler) replaceInstruction(pos int, newIns []byte) {

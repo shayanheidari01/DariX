@@ -5,6 +5,7 @@ package ast
 import (
 	"darix/token"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -39,11 +40,93 @@ func (p *Program) TokenLiteral() string {
 }
 
 func (p *Program) String() string {
+	return statementsString(p.Statements)
+}
+
+func statementsString(stmts []Statement) string {
+	if len(stmts) == 0 {
+		return ""
+	}
+
 	var out strings.Builder
-	for _, s := range p.Statements {
-		out.WriteString(s.String())
+	for _, stmt := range stmts {
+		if stmt == nil {
+			continue
+		}
+		out.WriteString(stmt.String())
 	}
 	return out.String()
+}
+
+func statementString(stmt Statement) string {
+	if stmt == nil {
+		return ""
+	}
+	return stmt.String()
+}
+
+func expressionString(expr Expression) string {
+	if expr == nil {
+		return ""
+	}
+	return expr.String()
+}
+
+func identifierString(ident *Identifier) string {
+	if ident == nil {
+		return ""
+	}
+	return ident.String()
+}
+
+func identifierStrings(identifiers []*Identifier) []string {
+	if len(identifiers) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(identifiers))
+	for _, ident := range identifiers {
+		if ident == nil {
+			continue
+		}
+		out = append(out, ident.String())
+	}
+	return out
+}
+
+func expressionStrings(expressions []Expression) []string {
+	if len(expressions) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(expressions))
+	for _, expr := range expressions {
+		if expr == nil {
+			continue
+		}
+		out = append(out, expr.String())
+	}
+	return out
+}
+
+func blockString(block *BlockStatement) string {
+	if block == nil {
+		return "{}"
+	}
+	return block.String()
+}
+
+func mapPairStrings(pairs map[Expression]Expression) []string {
+	if len(pairs) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(pairs))
+	for key, value := range pairs {
+		out = append(out, expressionString(key)+":"+expressionString(value))
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ImportStatement represents import statements
@@ -55,10 +138,14 @@ type ImportStatement struct {
 func (is *ImportStatement) statementNode()       {}
 func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
 func (is *ImportStatement) String() string {
-	if is.Path == nil {
-		return "import;"
+	var out strings.Builder
+	out.WriteString("import")
+	if is.Path != nil {
+		out.WriteString(" ")
+		out.WriteString(expressionString(is.Path))
 	}
-	return fmt.Sprintf("import %s;", is.Path.Value)
+	out.WriteString(";")
+	return out.String()
 }
 
 // LetStatement represents a 'var' statement.
@@ -74,13 +161,9 @@ func (ls *LetStatement) String() string {
 	var out strings.Builder
 	out.WriteString(ls.TokenLiteral())
 	out.WriteString(" ")
-	if ls.Name != nil {
-		out.WriteString(ls.Name.String())
-	}
+	out.WriteString(identifierString(ls.Name))
 	out.WriteString(" = ")
-	if ls.Value != nil {
-		out.WriteString(ls.Value.String())
-	}
+	out.WriteString(expressionString(ls.Value))
 	out.WriteString(";")
 	return out.String()
 }
@@ -96,13 +179,9 @@ func (as *AssignStatement) statementNode()       {}
 func (as *AssignStatement) TokenLiteral() string { return as.Token.Literal }
 func (as *AssignStatement) String() string {
 	var out strings.Builder
-	if as.Target != nil {
-		out.WriteString(as.Target.String())
-	}
+	out.WriteString(expressionString(as.Target))
 	out.WriteString(" = ")
-	if as.Value != nil {
-		out.WriteString(as.Value.String())
-	}
+	out.WriteString(expressionString(as.Value))
 	out.WriteString(";")
 	return out.String()
 }
@@ -119,9 +198,7 @@ func (rs *ReturnStatement) String() string {
 	var out strings.Builder
 	out.WriteString(rs.TokenLiteral())
 	out.WriteString(" ")
-	if rs.ReturnValue != nil {
-		out.WriteString(rs.ReturnValue.String())
-	}
+	out.WriteString(expressionString(rs.ReturnValue))
 	out.WriteString(";")
 	return out.String()
 }
@@ -135,10 +212,7 @@ type ExpressionStatement struct {
 func (es *ExpressionStatement) statementNode()       {}
 func (es *ExpressionStatement) TokenLiteral() string { return es.Token.Literal }
 func (es *ExpressionStatement) String() string {
-	if es.Expression != nil {
-		return es.Expression.String()
-	}
-	return ""
+	return expressionString(es.Expression)
 }
 
 // BlockStatement represents a block of statements enclosed in braces.
@@ -153,9 +227,7 @@ func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
 func (bs *BlockStatement) String() string {
 	var out strings.Builder
 	out.WriteString("{")
-	for _, s := range bs.Statements {
-		out.WriteString(s.String())
-	}
+	out.WriteString(statementsString(bs.Statements))
 	out.WriteString("}")
 	return out.String()
 }
@@ -169,10 +241,7 @@ type StandaloneBlockStatement struct {
 func (sbs *StandaloneBlockStatement) statementNode()       {}
 func (sbs *StandaloneBlockStatement) TokenLiteral() string { return sbs.Token.Literal }
 func (sbs *StandaloneBlockStatement) String() string {
-	if sbs.Block != nil {
-		return sbs.Block.String()
-	}
-	return "{}"
+	return blockString(sbs.Block)
 }
 
 // BreakStatement represents a 'break' statement
@@ -346,13 +415,9 @@ func (ae *AssignExpression) expressionNode()      {}
 func (ae *AssignExpression) TokenLiteral() string { return ae.Token.Literal }
 func (ae *AssignExpression) String() string {
 	var out strings.Builder
-	if ae.Name != nil {
-		out.WriteString(ae.Name.String())
-	}
+	out.WriteString(expressionString(ae.Name))
 	out.WriteString(" = ")
-	if ae.Value != nil {
-		out.WriteString(ae.Value.String())
-	}
+	out.WriteString(expressionString(ae.Value))
 	return out.String()
 }
 
@@ -369,9 +434,7 @@ func (pe *PrefixExpression) String() string {
 	var out strings.Builder
 	out.WriteString("(")
 	out.WriteString(pe.Operator)
-	if pe.Right != nil {
-		out.WriteString(pe.Right.String())
-	}
+	out.WriteString(expressionString(pe.Right))
 	out.WriteString(")")
 	return out.String()
 }
@@ -389,13 +452,9 @@ func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *InfixExpression) String() string {
 	var out strings.Builder
 	out.WriteString("(")
-	if ie.Left != nil {
-		out.WriteString(ie.Left.String())
-	}
+	out.WriteString(expressionString(ie.Left))
 	out.WriteString(" " + ie.Operator + " ")
-	if ie.Right != nil {
-		out.WriteString(ie.Right.String())
-	}
+	out.WriteString(expressionString(ie.Right))
 	out.WriteString(")")
 	return out.String()
 }
@@ -413,13 +472,9 @@ func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *IfExpression) String() string {
 	var out strings.Builder
 	out.WriteString("if")
-	if ie.Condition != nil {
-		out.WriteString(ie.Condition.String())
-	}
+	out.WriteString(expressionString(ie.Condition))
 	out.WriteString(" ")
-	if ie.Consequence != nil {
-		out.WriteString(ie.Consequence.String())
-	}
+	out.WriteString(blockString(ie.Consequence))
 	if ie.Alternative != nil {
 		out.WriteString("else ")
 		out.WriteString(ie.Alternative.String())
@@ -438,19 +493,11 @@ func (fl *FunctionLiteral) expressionNode()      {}
 func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
 func (fl *FunctionLiteral) String() string {
 	var out strings.Builder
-	params := make([]string, 0, len(fl.Parameters))
-	for _, p := range fl.Parameters {
-		if p != nil {
-			params = append(params, p.String())
-		}
-	}
 	out.WriteString(fl.TokenLiteral())
 	out.WriteString("(")
-	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(strings.Join(identifierStrings(fl.Parameters), ", "))
 	out.WriteString(") ")
-	if fl.Body != nil {
-		out.WriteString(fl.Body.String())
-	}
+	out.WriteString(blockString(fl.Body))
 	return out.String()
 }
 
@@ -465,17 +512,9 @@ func (ce *CallExpression) expressionNode()      {}
 func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
 func (ce *CallExpression) String() string {
 	var out strings.Builder
-	args := make([]string, 0, len(ce.Arguments))
-	for _, a := range ce.Arguments {
-		if a != nil {
-			args = append(args, a.String())
-		}
-	}
-	if ce.Function != nil {
-		out.WriteString(ce.Function.String())
-	}
+	out.WriteString(expressionString(ce.Function))
 	out.WriteString("(")
-	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(strings.Join(expressionStrings(ce.Arguments), ", "))
 	out.WriteString(")")
 	return out.String()
 }
@@ -490,14 +529,8 @@ func (al *ArrayLiteral) expressionNode()      {}
 func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
 func (al *ArrayLiteral) String() string {
 	var out strings.Builder
-	elements := make([]string, 0, len(al.Elements))
-	for _, el := range al.Elements {
-		if el != nil {
-			elements = append(elements, el.String())
-		}
-	}
 	out.WriteString("[")
-	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString(strings.Join(expressionStrings(al.Elements), ", "))
 	out.WriteString("]")
 	return out.String()
 }
@@ -512,20 +545,8 @@ func (ml *MapLiteral) expressionNode()      {}
 func (ml *MapLiteral) TokenLiteral() string { return ml.Token.Literal }
 func (ml *MapLiteral) String() string {
 	var out strings.Builder
-	pairs := make([]string, 0, len(ml.Pairs))
-	for key, value := range ml.Pairs {
-		keyStr := ""
-		if key != nil {
-			keyStr = key.String()
-		}
-		valueStr := ""
-		if value != nil {
-			valueStr = value.String()
-		}
-		pairs = append(pairs, keyStr+":"+valueStr)
-	}
 	out.WriteString("{")
-	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString(strings.Join(mapPairStrings(ml.Pairs), ", "))
 	out.WriteString("}")
 	return out.String()
 }
@@ -540,15 +561,7 @@ type IndexExpression struct {
 func (ie *IndexExpression) expressionNode()      {}
 func (ie *IndexExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *IndexExpression) String() string {
-	leftStr := ""
-	if ie.Left != nil {
-		leftStr = ie.Left.String()
-	}
-	indexStr := ""
-	if ie.Index != nil {
-		indexStr = ie.Index.String()
-	}
-	return fmt.Sprintf("(%s[%s])", leftStr, indexStr)
+	return fmt.Sprintf("(%s[%s])", expressionString(ie.Left), expressionString(ie.Index))
 }
 
 // MemberExpression represents attribute access: obj.prop
@@ -561,15 +574,7 @@ type MemberExpression struct {
 func (me *MemberExpression) expressionNode()      {}
 func (me *MemberExpression) TokenLiteral() string { return me.Token.Literal }
 func (me *MemberExpression) String() string {
-    leftStr := ""
-    if me.Left != nil {
-        leftStr = me.Left.String()
-    }
-    prop := ""
-    if me.Property != nil {
-        prop = me.Property.String()
-    }
-    return fmt.Sprintf("(%s.%s)", leftStr, prop)
+    return fmt.Sprintf("(%s.%s)", expressionString(me.Left), identifierString(me.Property))
 }
 
 // ClassDeclaration represents: class Name { ... }
@@ -584,13 +589,9 @@ func (cd *ClassDeclaration) TokenLiteral() string { return cd.Token.Literal }
 func (cd *ClassDeclaration) String() string {
     var out strings.Builder
     out.WriteString("class ")
-    if cd.Name != nil {
-        out.WriteString(cd.Name.String())
-    }
+    out.WriteString(identifierString(cd.Name))
     out.WriteString(" ")
-    if cd.Body != nil {
-        out.WriteString(cd.Body.String())
-    }
+    out.WriteString(blockString(cd.Body))
     return out.String()
 }
 
@@ -604,15 +605,7 @@ type WhileExpression struct {
 func (we *WhileExpression) expressionNode()      {}
 func (we *WhileExpression) TokenLiteral() string { return we.Token.Literal }
 func (we *WhileExpression) String() string {
-	condition := ""
-	if we.Condition != nil {
-		condition = we.Condition.String()
-	}
-	body := ""
-	if we.Body != nil {
-		body = we.Body.String()
-	}
-	return fmt.Sprintf("while(%s) %s", condition, body)
+	return fmt.Sprintf("while(%s) %s", expressionString(we.Condition), blockString(we.Body))
 }
 
 
@@ -628,9 +621,7 @@ func (ts *ThrowStatement) String() string {
     var out strings.Builder
     out.WriteString(ts.TokenLiteral())
     out.WriteString(" ")
-    if ts.Exception != nil {
-        out.WriteString(ts.Exception.String())
-    }
+    out.WriteString(expressionString(ts.Exception))
     out.WriteString(";")
     return out.String()
 }
@@ -648,11 +639,12 @@ func (ts *TryStatement) TokenLiteral() string { return ts.Token.Literal }
 func (ts *TryStatement) String() string {
 	var out strings.Builder
 	out.WriteString("try ")
-	if ts.TryBlock != nil {
-		out.WriteString(ts.TryBlock.String())
-	}
+	out.WriteString(blockString(ts.TryBlock))
 
 	for _, catchClause := range ts.CatchClauses {
+		if catchClause == nil {
+			continue
+		}
 		out.WriteString(" ")
 		out.WriteString(catchClause.String())
 	}
@@ -680,14 +672,14 @@ func (cc *CatchClause) String() string {
 	if cc.ExceptionType != nil {
 		out.WriteString(" (")
 		out.WriteString(cc.ExceptionType.String())
-		if cc.Variable != nil {
+		if name := identifierString(cc.Variable); name != "" {
 			out.WriteString(" ")
-			out.WriteString(cc.Variable.String())
+			out.WriteString(name)
 		}
 		out.WriteString(")")
-	} else if cc.Variable != nil {
+	} else if name := identifierString(cc.Variable); name != "" {
 		out.WriteString(" (")
-		out.WriteString(cc.Variable.String())
+		out.WriteString(name)
 		out.WriteString(")")
 	}
 
@@ -710,13 +702,9 @@ func (ee *ExceptionExpression) expressionNode()      {}
 func (ee *ExceptionExpression) TokenLiteral() string { return ee.Token.Literal }
 func (ee *ExceptionExpression) String() string {
 	var out strings.Builder
-	if ee.Type != nil {
-		out.WriteString(ee.Type.String())
-	}
+	out.WriteString(identifierString(ee.Type))
 	out.WriteString("(")
-	if ee.Message != nil {
-		out.WriteString(ee.Message.String())
-	}
+	out.WriteString(expressionString(ee.Message))
 	out.WriteString(")")
 	return out.String()
 }

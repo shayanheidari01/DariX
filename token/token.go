@@ -9,10 +9,10 @@ const (
 	EOF     = "EOF"
 
 	// Identifiers + literals
-	IDENT  = "IDENT"  // add, foobar, x, y, ...
-	INT    = "INT"    // 1343456
-	FLOAT  = "FLOAT"  // 1.0
-	STRING = "STRING" // "hello world"
+	IDENT  = "IDENT"
+	INT    = "INT"
+	FLOAT  = "FLOAT"
+	STRING = "STRING"
 
 	// Operators
 	ASSIGN   = "="
@@ -23,34 +23,30 @@ const (
 	AND      = "&&"
 	ASTERISK = "*"
 	SLASH    = "/"
+	MODULO   = "%"
+	LT       = "<"
+	GT       = ">"
+	LE       = "<="
+	GE       = ">="
+	EQ       = "=="
+	NOT_EQ   = "!="
 
-	LT = "<"
-	GT = ">"
-	LE = "<=" // Added
-	GE = ">=" // Added
-
-	EQ     = "=="
-	NOT_EQ = "!="
-
-	// Delimiters
-	MODULO    = "%"
+	// Delimiters / punctuation
 	COMMA     = ","
 	SEMICOLON = ";"
-	COLON     = ":" // Added
-	DOT       = "." // Added for attribute access
-
-	LPAREN = "("
-	RPAREN = ")"
-	LBRACE = "{"
-	RBRACE = "}"
-
-	LBRACKET = "[" // Added
-	RBRACKET = "]" // Added
+	COLON     = ":"
+	DOT       = "."
+	LPAREN    = "("
+	RPAREN    = ")"
+	LBRACE    = "{"
+	RBRACE    = "}"
+	LBRACKET  = "["
+	RBRACKET  = "]"
 
 	// Keywords
 	FUNCTION = "FUNCTION"
-	CLASS    = "CLASS" // Added for class declarations
-	VAR      = "VAR" // Changed from LET
+	CLASS    = "CLASS"
+	VAR      = "VAR"
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
 	NULL     = "NULL"
@@ -62,35 +58,50 @@ const (
 	BREAK    = "BREAK"
 	CONTINUE = "CONTINUE"
 	IMPORT   = "IMPORT"
-	// Exception handling keywords
-	TRY     = "TRY"
-	CATCH   = "CATCH"
-	FINALLY = "FINALLY"
-	THROW   = "THROW"
-	RAISE   = "RAISE"
+	TRY      = "TRY"
+	CATCH    = "CATCH"
+	FINALLY  = "FINALLY"
+	THROW    = "THROW"
+	RAISE    = "RAISE"
 )
 
-var keywords = map[string]TokenType{
-	"func":     FUNCTION,
-	"class":    CLASS,
-	"var":      VAR, // Changed from let
-	"true":     TRUE,
-	"false":    FALSE,
-	"if":       IF,
-	"else":     ELSE,
-	"null":     NULL,
-	"return":   RETURN,
-	"while":    WHILE,
-	"for":      FOR,
-	"break":    BREAK,
-	"continue": CONTINUE,
-	"import":   IMPORT,
-	// Exception handling keywords
-	"try":     TRY,
-	"catch":   CATCH,
-	"finally": FINALLY,
-	"throw":   THROW,
-	"raise":   RAISE,
+type keywordEntry struct {
+	literal string
+	typeID  TokenType
+}
+
+var keywordEntries = [...]keywordEntry{
+	{"func", FUNCTION},
+	{"class", CLASS},
+	{"var", VAR},
+	{"true", TRUE},
+	{"false", FALSE},
+	{"if", IF},
+	{"else", ELSE},
+	{"null", NULL},
+	{"return", RETURN},
+	{"while", WHILE},
+	{"for", FOR},
+	{"break", BREAK},
+	{"continue", CONTINUE},
+	{"import", IMPORT},
+	{"try", TRY},
+	{"catch", CATCH},
+	{"finally", FINALLY},
+	{"throw", THROW},
+	{"raise", RAISE},
+}
+
+var keywords = make(map[string]TokenType, len(keywordEntries))
+
+func init() {
+	for _, entry := range keywordEntries {
+		keywords[entry.literal] = entry.typeID
+	}
+}
+
+func RegisterKeyword(literal string, tok TokenType) {
+	keywords[literal] = tok
 }
 
 func LookupIdent(ident string) TokenType {
@@ -104,9 +115,7 @@ type Token struct {
 	Type    TokenType
 	Literal string
 	File    string
-	// 1-based source position of the token's first character
-	Line   int
-	Column int
-	// 0-based byte offset from the start of the source
-	Offset int
+	Line    int
+	Column  int
+	Offset  int
 }

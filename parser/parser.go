@@ -327,7 +327,11 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	if !p.expectPeek(token.LPAREN) {
 		return nil
 	}
-	lit.Parameters = p.parseFunctionParameters()
+	params := p.parseFunctionParameters()
+	if params == nil {
+		return nil
+	}
+	lit.Parameters = params
 	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
@@ -422,7 +426,6 @@ func (p *Parser) parseMemberExpression(left ast.Expression) ast.Expression {
 	exp.Property = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	return exp
 }
-
 
 func (p *Parser) parseAssignmentExpression(left ast.Expression) ast.Expression {
 	if !p.isValidAssignmentTarget(left) {
@@ -678,33 +681,7 @@ func (p *Parser) parseForExpression() ast.Expression {
 
 // Helper functions
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
-	identifiers := make([]*ast.Identifier, 0, 4)
-
-	if p.peekToken.Type == token.RPAREN {
-		p.nextToken()
-		return identifiers
-	}
-
-	p.nextToken()
-	identifiers = append(identifiers, &ast.Identifier{
-		Token: p.curToken,
-		Value: p.curToken.Literal,
-	})
-
-	for p.peekToken.Type == token.COMMA {
-		p.nextToken() // consume comma
-		p.nextToken() // move to next param
-		identifiers = append(identifiers, &ast.Identifier{
-			Token: p.curToken,
-			Value: p.curToken.Literal,
-		})
-	}
-
-	if !p.expectPeek(token.RPAREN) {
-		return nil
-	}
-
-	return identifiers
+	return p.parseIdentifierList(token.RPAREN)
 }
 
 func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
@@ -721,6 +698,10 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 
 	for p.peekTokenIs(token.COMMA) {
 		p.nextToken() // consume comma
+		if p.peekTokenIs(end) {
+			p.nextToken() // move to closing token
+			return list
+		}
 		p.nextToken() // move to next expr
 		if expr := p.parseExpression(LOWEST); expr != nil {
 			list = append(list, expr)
@@ -807,25 +788,25 @@ func (p *Parser) peekPrecedence() int {
 
 // Error handling
 func (p *Parser) Errors() []string {
-    return p.errors
+	return p.errors
 }
 
 func (p *Parser) addError(format string, args ...interface{}) {
-    // Prefer current token position; fallback to peek token.
-    file := p.curToken.File
-    line, col := p.curToken.Line, p.curToken.Column
-    if line == 0 && p.peekToken.Line != 0 {
-        file, line, col = p.peekToken.File, p.peekToken.Line, p.peekToken.Column
-    }
-    base := fmt.Sprintf(format, args...)
-    switch {
-    case file != "" && line > 0 && col > 0:
-        p.errors = append(p.errors, fmt.Sprintf("%s:%d:%d: %s", file, line, col, base))
-    case line > 0 && col > 0:
-        p.errors = append(p.errors, fmt.Sprintf("%d:%d: %s", line, col, base))
-    default:
-        p.errors = append(p.errors, base)
-    }
+	// Prefer current token position; fallback to peek token.
+	file := p.curToken.File
+	line, col := p.curToken.Line, p.curToken.Column
+	if line == 0 && p.peekToken.Line != 0 {
+		file, line, col = p.peekToken.File, p.peekToken.Line, p.peekToken.Column
+	}
+	base := fmt.Sprintf(format, args...)
+	switch {
+	case file != "" && line > 0 && col > 0:
+		p.errors = append(p.errors, fmt.Sprintf("%s:%d:%d: %s", file, line, col, base))
+	case line > 0 && col > 0:
+		p.errors = append(p.errors, fmt.Sprintf("%d:%d: %s", line, col, base))
+	default:
+		p.errors = append(p.errors, base)
+	}
 }
 
 // ===== EXCEPTION HANDLING PARSERS =====
@@ -949,12 +930,50 @@ func (p *Parser) parseFunctionDeclaration() ast.Statement {
 	if !p.expectPeek(token.LPAREN) {
 		return nil
 	}
-	stmt.Parameters = p.parseFunctionParameters()
+	params := p.parseFunctionParameters()
+	if params == nil {
+		return nil
+	}
+	stmt.Parameters = params
 	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
 	stmt.Body = p.parseBlockStatement()
 	return stmt
+}
+
+func (p *Parser) parseIdentifierList(end token.TokenType) []*ast.Identifier {
+	identifiers := make([]*ast.Identifier, 0, 4)
+
+	if p.peekToken.Type == end {
+		p.nextToken()
+		return identifiers
+	}
+
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	identifiers = append(identifiers, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+
+	for p.peekToken.Type == token.COMMA {
+		p.nextToken() // consume comma
+		if p.peekToken.Type == end {
+			p.nextToken() // consume closing delimiter
+			return identifiers
+		}
+		p.nextToken()
+		if p.curToken.Type != token.IDENT {
+			p.addError("expected identifier, got %s", p.curToken.Type)
+			return nil
+		}
+		identifiers = append(identifiers, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+
+	if !p.expectPeek(end) {
+		return nil
+	}
+
+	return identifiers
 }
 
 // parseWhileExpression parses while loops as expressions
@@ -970,4 +989,3 @@ func (p *Parser) parseWhileExpression() ast.Expression {
 	p.addError("expected while statement")
 	return nil
 }
-

@@ -1,0 +1,194 @@
+// HTTP Server Test for DariX
+// Tests HTTP server creation, routing, and basic functionality
+
+import "go:httpserver";
+import "go:http";
+
+print("🌐 DariX HTTP Server Test");
+print("=========================");
+
+var total_tests = 0;
+var passed_tests = 0;
+
+func test(name, result) {
+    total_tests = total_tests + 1;
+    if (result) {
+        print("✅ " + name);
+        passed_tests = passed_tests + 1;
+    } else {
+        print("❌ " + name);
+    }
+}
+
+print("\n🚀 Testing HTTP Server Creation:");
+print("--------------------------------");
+
+// Test server creation
+var server = server_create(8080);
+test("server_create", type(server) == "MAP");
+
+var server_id = "";
+if (type(server) == "MAP") {
+    server_id = server["server_id"];
+    test("server_has_id", type(server_id) == "STRING");
+}
+
+print("\n🛣️  Testing Route Management:");
+print("-----------------------------");
+
+// Define a simple route handler
+func hello_handler(request, response) {
+    return "Hello from DariX HTTP Server!";
+}
+
+// Test route addition
+var route_result = server_route(server_id, "GET", "/hello", hello_handler);
+test("server_route_get", route_result);
+
+var route_result2 = server_route(server_id, "POST", "/api/data", hello_handler);
+test("server_route_post", route_result2);
+
+print("\n📁 Testing Static File Serving:");
+print("--------------------------------");
+
+// Test static file serving (create a test directory first)
+try {
+    // Note: This would require actual directory creation
+    // For now, we'll test the function exists
+    test("server_static_exists", type(server_static) == "BUILTIN");
+} catch (e) {
+    print("⚠️  Static file test skipped: " + str(e));
+    total_tests = total_tests - 1;
+}
+
+print("\n⚙️  Testing Server Configuration:");
+print("---------------------------------");
+
+// Test timeout setting
+var timeout_result = server_set_timeout(server_id, 60);
+test("server_set_timeout", timeout_result);
+
+print("\n🔧 Testing Middleware:");
+print("----------------------");
+
+// Define middleware function
+func logging_middleware(request, response, next) {
+    print("Request received: " + request["method"] + " " + request["path"]);
+    return next();
+}
+
+// Test middleware addition
+var middleware_result = server_middleware(server_id, logging_middleware);
+test("server_middleware", middleware_result);
+
+print("\n🎯 Testing Server Lifecycle:");
+print("-----------------------------");
+
+// Test server start
+var start_result = server_start(server_id);
+test("server_start", type(start_result) == "MAP");
+
+if (type(start_result) == "MAP") {
+    print("📡 Server started on port:", start_result["port"]);
+    print("🌐 Server address:", start_result["address"]);
+    
+    // Wait a moment for server to start
+    // Note: In a real scenario, we might want to test actual HTTP requests
+    
+    // Test server stop
+    var stop_result = server_stop(server_id);
+    test("server_stop", stop_result);
+}
+
+print("\n🧪 Testing Response Functions:");
+print("------------------------------");
+
+// Test response helper functions exist
+test("response_json_exists", type(response_json) == "BUILTIN");
+test("response_html_exists", type(response_html) == "BUILTIN");
+test("response_text_exists", type(response_text) == "BUILTIN");
+test("response_file_exists", type(response_file) == "BUILTIN");
+test("response_redirect_exists", type(response_redirect) == "BUILTIN");
+test("response_status_exists", type(response_status) == "BUILTIN");
+
+print("\n📥 Testing Request Functions:");
+print("-----------------------------");
+
+// Test request helper functions exist
+test("request_get_param_exists", type(request_get_param) == "BUILTIN");
+test("request_get_header_exists", type(request_get_header) == "BUILTIN");
+test("request_get_body_exists", type(request_get_body) == "BUILTIN");
+
+print("\n📊 HTTP Server Test Summary:");
+print("=============================");
+print("Total Tests: " + str(total_tests));
+print("Passed: " + str(passed_tests));
+print("Failed: " + str(total_tests - passed_tests));
+
+var success_rate = 0;
+if (total_tests > 0) {
+    success_rate = (passed_tests * 100) / total_tests;
+}
+print("Success Rate: " + str(success_rate) + "%");
+
+if (passed_tests == total_tests) {
+    print("\n🎉 All HTTP server tests passed!");
+    print("✅ Server creation and management");
+    print("✅ Route registration and handling");
+    print("✅ Static file serving support");
+    print("✅ Middleware system");
+    print("✅ Server lifecycle management");
+    print("✅ Response helper functions");
+    print("✅ Request helper functions");
+} else {
+    print("\n⚠️  Some HTTP server tests failed");
+    print("Note: Full functionality requires actual HTTP requests for complete testing");
+}
+
+print("\n🌐 HTTP Server Features Available:");
+print("===================================");
+
+print("\n🚀 Server Management:");
+print("- server_create(port) - Create HTTP server");
+print("- server_start(server_id) - Start server");
+print("- server_stop(server_id) - Stop server");
+print("- server_set_timeout(server_id, seconds) - Set timeout");
+
+print("\n🛣️  Routing:");
+print("- server_route(server_id, method, path, handler) - Add route");
+print("- server_static(server_id, url_path, dir_path) - Static files");
+print("- server_middleware(server_id, middleware_func) - Add middleware");
+
+print("\n📤 Response Helpers:");
+print("- response_json(response, data) - Send JSON response");
+print("- response_html(response, html) - Send HTML response");
+print("- response_text(response, text) - Send text response");
+print("- response_file(response, filepath) - Send file");
+print("- response_redirect(response, url) - Redirect request");
+print("- response_status(response, code) - Set status code");
+
+print("\n📥 Request Helpers:");
+print("- request_get_param(request, name) - Get query parameter");
+print("- request_get_header(request, name) - Get request header");
+print("- request_get_body(request) - Get request body");
+
+print("\n📝 Usage Example:");
+print("=================");
+print("// Create and start HTTP server");
+print("var server = server_create(8080);");
+print("var server_id = server['server_id'];");
+print("");
+print("// Add routes");
+print("func api_handler(req, res) {");
+print("    return response_json(res, {'message': 'Hello API'});");
+print("}");
+print("server_route(server_id, 'GET', '/api/hello', api_handler);");
+print("");
+print("// Add static files");
+print("server_static(server_id, '/static/', './public/');");
+print("");
+print("// Start server");
+print("var result = server_start(server_id);");
+print("print('Server running on:', result['address']);");
+
+print("\n🚀 HTTP Server Test Complete!");

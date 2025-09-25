@@ -1,0 +1,169 @@
+// DariX Native Libraries Comprehensive Test
+// Tests all native modules: math, json, http, string, time, crypto, os, regex
+
+import "go:math";
+import "go:json";
+import "go:string";
+import "go:time";
+import "go:crypto";
+import "go:regex";
+
+print("🚀 DariX Native Libraries Test Suite");
+print("=====================================");
+
+// Test counters
+var total_tests = 0;
+var passed_tests = 0;
+
+func test(name, result) {
+    total_tests = total_tests + 1;
+    if (result) {
+        print("✅ " + name);
+        passed_tests = passed_tests + 1;
+    } else {
+        print("❌ " + name);
+    }
+}
+
+print("\n📊 Testing Math Library:");
+print("------------------------");
+
+// Basic math functions
+test("math_sqrt", math_sqrt(16) == 4.0);
+test("math_pow", math_pow(2, 3) == 8.0);
+test("math_abs", math_abs(-5) == 5.0);
+
+// Trigonometric functions
+test("math_sin", math_sin(0) == 0.0);
+test("math_cos", math_cos(0) == 1.0);
+
+// Rounding functions
+test("math_ceil", math_ceil(3.2) == 4.0);
+test("math_floor", math_floor(3.8) == 3.0);
+test("math_round", math_round(3.6) == 4.0);
+
+// Constants
+var pi_val = math_pi();
+test("math_pi", type(pi_val) == "FLOAT");
+var e_val = math_e();
+test("math_e", type(e_val) == "FLOAT");
+
+// Min/Max functions
+test("math_max", math_max(1, 5, 3) == 5.0);
+test("math_min", math_min(1, 5, 3) == 1.0);
+
+print("\n📝 Testing JSON Library:");
+print("------------------------");
+
+// JSON parsing and stringifying
+var json_obj = {"name": "DariX", "version": 1.0, "active": true};
+var json_str = json_stringify(json_obj);
+test("json_stringify", len(json_str) > 0);
+
+var parsed = json_parse("{\"test\": \"value\", \"number\": 42}");
+test("json_parse", type(parsed) == "MAP");
+
+print("\n🔤 Testing String Library:");
+print("--------------------------");
+
+// String manipulation
+test("str_upper", str_upper("hello") == "HELLO");
+test("str_lower", str_lower("WORLD") == "world");
+test("str_trim", str_trim("  test  ") == "test");
+
+// String operations
+var parts = str_split("a,b,c", ",");
+test("str_split", len(parts) == 3);
+test("str_join", str_join(["a", "b", "c"], "-") == "a-b-c");
+
+// String queries
+test("str_contains", str_contains("hello world", "world"));
+test("str_starts", str_starts("hello", "hel"));
+test("str_ends", str_ends("world", "rld"));
+
+// String validation
+test("str_is_alpha", str_is_alpha("abc"));
+test("str_is_digit", str_is_digit("123"));
+
+print("\n⏰ Testing Time Library:");
+print("------------------------");
+
+// Time operations
+var now = time_now();
+test("time_now", now > 0);
+
+var year = time_year(now);
+test("time_year", type(year) == "INTEGER");
+
+var month = time_month(now);
+test("time_month", type(month) == "INTEGER");
+
+// Time arithmetic
+var future = time_add_days(now, 1);
+test("time_add_days", future > now);
+
+var diff = time_diff(future, now);
+test("time_diff", diff == 86400); // 1 day = 86400 seconds
+
+print("\n🔐 Testing Crypto Library:");
+print("--------------------------");
+
+// Hash functions
+var text = "Hello DariX";
+var md5_hash = crypto_md5(text);
+test("crypto_md5", len(md5_hash) == 32);
+
+var sha256_hash = crypto_sha256(text);
+test("crypto_sha256", len(sha256_hash) == 64);
+
+// Encoding functions
+var encoded = crypto_base64_encode(text);
+test("crypto_base64_encode", len(encoded) > 0);
+
+var decoded = crypto_base64_decode(encoded);
+test("crypto_base64_decode", decoded == text);
+
+var hex_encoded = crypto_hex_encode(text);
+test("crypto_hex_encode", len(hex_encoded) > 0);
+
+var hex_decoded = crypto_hex_decode(hex_encoded);
+test("crypto_hex_decode", hex_decoded == text);
+
+print("\n🔍 Testing Regex Library:");
+print("-------------------------");
+
+// Pattern matching
+test("regex_match", regex_match("h.*o", "hello"));
+test("regex_test", regex_test("[a-z]+"));
+
+// Find operations
+var match = regex_find("\\d+", "abc123def");
+test("regex_find", match == "123");
+
+var all_matches = regex_find_all("\\d", "a1b2c3");
+test("regex_find_all", len(all_matches) == 3);
+
+// Replace operations
+var replaced = regex_replace("\\d+", "abc123def", "XXX");
+test("regex_replace", replaced == "abcXXXdef");
+
+// Split operations
+var regex_parts = regex_split("\\s+", "hello world test");
+test("regex_split", len(regex_parts) == 3);
+
+print("\n📊 Test Results:");
+print("================");
+print("Total Tests: " + str(total_tests));
+print("Passed: " + str(passed_tests));
+print("Failed: " + str(total_tests - passed_tests));
+
+var success_rate = (passed_tests * 100) / total_tests;
+print("Success Rate: " + str(success_rate) + "%");
+
+if (passed_tests == total_tests) {
+    print("\n🎉 All tests passed! Native libraries are working perfectly!");
+} else {
+    print("\n⚠️  Some tests failed. Check the implementation.");
+}
+
+print("\n🚀 Native Libraries Test Complete!");

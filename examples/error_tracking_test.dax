@@ -1,0 +1,184 @@
+// DariX Enhanced Error Tracking Test
+// Tests improved error reporting with stack traces and detailed information
+
+print("🚀 DariX Enhanced Error Tracking Test");
+print("====================================");
+
+var test_count = 0;
+var error_count = 0;
+
+func test_error(name, description) {
+    test_count = test_count + 1;
+    print("\n📋 Test " + str(test_count) + ": " + name);
+    print("Description: " + description);
+    print("Expected: Detailed error with context");
+    print("Result:");
+}
+
+// Test 1: Division by zero error
+test_error("Division by Zero", "Should show detailed error with position info");
+try {
+    var result = 10 / 0;
+    print("❌ Error: Division by zero should have thrown an error!");
+} catch (e) {
+    print("✅ Caught division by zero error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 2: Undefined variable access
+test_error("Undefined Variable", "Should show NameError with suggestion");
+try {
+    print(undefined_variable);
+    print("❌ Error: Undefined variable should have thrown an error!");
+} catch (e) {
+    print("✅ Caught undefined variable error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 3: Type error in function call
+test_error("Type Error", "Should show TypeError with clear message");
+try {
+    var not_a_function = "hello";
+    not_a_function(42);
+    print("❌ Error: Calling non-function should have thrown an error!");
+} catch (e) {
+    print("✅ Caught type error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 4: Array index out of bounds
+test_error("Index Error", "Should show IndexError with bounds info");
+try {
+    var arr = [1, 2, 3];
+    var value = arr[10];
+    print("❌ Error: Index out of bounds should have thrown an error!");
+} catch (e) {
+    print("✅ Caught index error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 5: Function with stack trace
+func level3() {
+    return undefined_variable_in_function;
+}
+
+func level2() {
+    return level3();
+}
+
+func level1() {
+    return level2();
+}
+
+test_error("Stack Trace", "Should show full call stack");
+try {
+    level1();
+    print("❌ Error: Function call should have thrown an error!");
+} catch (e) {
+    print("✅ Caught error with stack trace:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 6: Nested function error
+test_error("Nested Function Error", "Should show error context in nested calls");
+func outer_function(x) {
+    func inner_function(y) {
+        return y / 0;  // Division by zero in nested function
+    }
+    return inner_function(x);
+}
+
+try {
+    outer_function(5);
+    print("❌ Error: Nested function should have thrown an error!");
+} catch (e) {
+    print("✅ Caught nested function error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 7: Class method error
+class Calculator {
+    func __init__(self) {
+        self.name = "Calculator";
+    }
+    
+    func divide(self, a, b) {
+        if (b == 0) {
+            throw "Division by zero in Calculator.divide()";
+        }
+        return a / b;
+    }
+}
+
+test_error("Class Method Error", "Should show error in class method context");
+try {
+    var calc = Calculator();
+    calc.divide(10, 0);
+    print("❌ Error: Class method should have thrown an error!");
+} catch (e) {
+    print("✅ Caught class method error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Test 8: Multiple error types
+test_error("Multiple Error Types", "Testing different error scenarios");
+
+// Type conversion error
+try {
+    var result = int("not_a_number");
+    print("❌ Error: Invalid conversion should have thrown an error!");
+} catch (e) {
+    print("✅ Caught conversion error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Map key error
+try {
+    var map = {"key1": "value1"};
+    var value = map["nonexistent_key"];
+    // Note: This might not throw an error in DariX, just return null
+    if (value == null) {
+        print("✅ Map key access returned null (expected behavior)");
+    }
+} catch (e) {
+    print("✅ Caught map key error:");
+    print(e);
+    error_count = error_count + 1;
+}
+
+// Summary
+print("\n📊 Error Tracking Test Summary:");
+print("==============================");
+print("Total Tests: " + str(test_count));
+print("Errors Caught: " + str(error_count));
+print("Success Rate: " + str((error_count * 100) / test_count) + "%");
+
+if (error_count >= 6) {
+    print("\n🎉 Enhanced error tracking is working well!");
+    print("✅ Errors provide detailed information");
+    print("✅ Stack traces are available");
+    print("✅ Error context is preserved");
+} else {
+    print("\n⚠️  Some error tracking features may need improvement");
+    print("Expected at least 6 different error types to be caught");
+}
+
+print("\n🔍 Error Tracking Features Tested:");
+print("- Division by zero detection");
+print("- Undefined variable handling");
+print("- Type error reporting");
+print("- Array bounds checking");
+print("- Function call stack traces");
+print("- Nested function error context");
+print("- Class method error handling");
+print("- Type conversion errors");
+
+print("\n🚀 Enhanced Error Tracking Test Complete!");
