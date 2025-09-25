@@ -36,6 +36,7 @@ const (
 	SEMICOLON = ";"
 	COLON     = ":"
 	DOT       = "."
+	AT        = "@"
 	LPAREN    = "("
 	RPAREN    = ")"
 	LBRACE    = "{"
@@ -52,17 +53,35 @@ const (
 	NULL     = "NULL"
 	IF       = "IF"
 	ELSE     = "ELSE"
+	ELIF     = "ELIF"
 	RETURN   = "RETURN"
 	WHILE    = "WHILE"
 	FOR      = "FOR"
 	BREAK    = "BREAK"
 	CONTINUE = "CONTINUE"
 	IMPORT   = "IMPORT"
+	FROM     = "FROM"
+	AS       = "AS"
 	TRY      = "TRY"
 	CATCH    = "CATCH"
 	FINALLY  = "FINALLY"
 	THROW    = "THROW"
 	RAISE    = "RAISE"
+	
+	// New keywords
+	DEL      = "DEL"
+	ASSERT   = "ASSERT"
+	PASS     = "PASS"
+	AND_KW   = "AND_KW"   // 'and' keyword (different from && operator)
+	OR_KW    = "OR_KW"    // 'or' keyword (different from || operator)
+	NOT_KW   = "NOT_KW"   // 'not' keyword (different from ! operator)
+	IN       = "IN"
+	IS       = "IS"
+	WITH     = "WITH"
+	YIELD    = "YIELD"
+	GLOBAL   = "GLOBAL"
+	NONLOCAL = "NONLOCAL"
+	LAMBDA   = "LAMBDA"
 )
 
 type keywordEntry struct {
@@ -78,6 +97,7 @@ var keywordEntries = [...]keywordEntry{
 	{"false", FALSE},
 	{"if", IF},
 	{"else", ELSE},
+	{"elif", ELIF},
 	{"null", NULL},
 	{"return", RETURN},
 	{"while", WHILE},
@@ -85,11 +105,28 @@ var keywordEntries = [...]keywordEntry{
 	{"break", BREAK},
 	{"continue", CONTINUE},
 	{"import", IMPORT},
+	{"from", FROM},
+	{"as", AS},
 	{"try", TRY},
 	{"catch", CATCH},
 	{"finally", FINALLY},
 	{"throw", THROW},
 	{"raise", RAISE},
+	
+	// New keywords
+	{"del", DEL},
+	{"assert", ASSERT},
+	{"pass", PASS},
+	{"and", AND_KW},
+	{"or", OR_KW},
+	{"not", NOT_KW},
+	{"in", IN},
+	{"is", IS},
+	{"with", WITH},
+	{"yield", YIELD},
+	{"global", GLOBAL},
+	{"nonlocal", NONLOCAL},
+	{"lambda", LAMBDA},
 }
 
 var keywords = make(map[string]TokenType, len(keywordEntries))

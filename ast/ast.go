@@ -316,22 +316,32 @@ func (fs *ForStatement) String() string {
 
 // FunctionDeclaration represents function declarations
 type FunctionDeclaration struct {
-	Token      token.Token     // FUNC token
-	Name       *Identifier     // function name
-	Parameters []*Identifier   // parameters
-	Body       *BlockStatement // body
+    Token      token.Token     // FUNC token
+    Name       *Identifier     // function name
+    Parameters []*Identifier   // parameters
+    Body       *BlockStatement // body
+    Decorators []Expression    // optional list of decorator expressions
 }
 
 func (fd *FunctionDeclaration) statementNode()       {}
 func (fd *FunctionDeclaration) TokenLiteral() string { return fd.Token.Literal }
 func (fd *FunctionDeclaration) String() string {
-	var out strings.Builder
-	params := make([]string, 0, len(fd.Parameters))
-	for _, p := range fd.Parameters {
-		if p != nil {
-			params = append(params, p.String())
-		}
-	}
+    var out strings.Builder
+    // Print decorators if any
+    if len(fd.Decorators) > 0 {
+        for _, d := range fd.Decorators {
+            if d == nil { continue }
+            out.WriteString("@")
+            out.WriteString(d.String())
+            out.WriteString("\n")
+        }
+    }
+    params := make([]string, 0, len(fd.Parameters))
+    for _, p := range fd.Parameters {
+        if p != nil {
+            params = append(params, p.String())
+        }
+    }
 	out.WriteString("func ")
 	if fd.Name != nil {
 		out.WriteString(fd.Name.String())
@@ -582,12 +592,22 @@ type ClassDeclaration struct {
     Token token.Token // 'class' token
     Name  *Identifier
     Body  *BlockStatement
+    Decorators []Expression // optional list of decorator expressions
 }
 
 func (cd *ClassDeclaration) statementNode()       {}
 func (cd *ClassDeclaration) TokenLiteral() string { return cd.Token.Literal }
 func (cd *ClassDeclaration) String() string {
     var out strings.Builder
+    // Print decorators if any
+    if len(cd.Decorators) > 0 {
+        for _, d := range cd.Decorators {
+            if d == nil { continue }
+            out.WriteString("@")
+            out.WriteString(d.String())
+            out.WriteString("\n")
+        }
+    }
     out.WriteString("class ")
     out.WriteString(identifierString(cd.Name))
     out.WriteString(" ")
@@ -706,5 +726,196 @@ func (ee *ExceptionExpression) String() string {
 	out.WriteString("(")
 	out.WriteString(expressionString(ee.Message))
 	out.WriteString(")")
+	return out.String()
+}
+
+// ===== NEW KEYWORD AST NODES =====
+
+// DelStatement represents a 'del' statement for deleting variables/elements
+type DelStatement struct {
+	Token  token.Token // the 'del' token
+	Target Expression  // what to delete (identifier, index, member)
+}
+
+func (ds *DelStatement) statementNode()       {}
+func (ds *DelStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DelStatement) String() string {
+	var out strings.Builder
+	out.WriteString("del ")
+	out.WriteString(expressionString(ds.Target))
+	out.WriteString(";")
+	return out.String()
+}
+
+// AssertStatement represents an 'assert' statement for debugging
+type AssertStatement struct {
+	Token     token.Token // the 'assert' token
+	Condition Expression  // condition to assert
+	Message   Expression  // optional error message
+}
+
+func (as *AssertStatement) statementNode()       {}
+func (as *AssertStatement) TokenLiteral() string { return as.Token.Literal }
+func (as *AssertStatement) String() string {
+	var out strings.Builder
+	out.WriteString("assert ")
+	out.WriteString(expressionString(as.Condition))
+	if as.Message != nil {
+		out.WriteString(", ")
+		out.WriteString(expressionString(as.Message))
+	}
+	out.WriteString(";")
+	return out.String()
+}
+
+// PassStatement represents a 'pass' statement (no-op placeholder)
+type PassStatement struct {
+	Token token.Token // the 'pass' token
+}
+
+func (ps *PassStatement) statementNode()       {}
+func (ps *PassStatement) TokenLiteral() string { return ps.Token.Literal }
+func (ps *PassStatement) String() string       { return "pass;" }
+
+// InExpression represents 'x in y' membership test
+type InExpression struct {
+	Token token.Token // the 'in' token
+	Left  Expression  // element to check
+	Right Expression  // container to check in
+}
+
+func (ie *InExpression) expressionNode()      {}
+func (ie *InExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InExpression) String() string {
+	var out strings.Builder
+	out.WriteString("(")
+	out.WriteString(expressionString(ie.Left))
+	out.WriteString(" in ")
+	out.WriteString(expressionString(ie.Right))
+	out.WriteString(")")
+	return out.String()
+}
+
+// IsExpression represents 'x is y' identity comparison
+type IsExpression struct {
+	Token token.Token // the 'is' token
+	Left  Expression  // left operand
+	Right Expression  // right operand
+}
+
+func (ie *IsExpression) expressionNode()      {}
+func (ie *IsExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IsExpression) String() string {
+	var out strings.Builder
+	out.WriteString("(")
+	out.WriteString(expressionString(ie.Left))
+	out.WriteString(" is ")
+	out.WriteString(expressionString(ie.Right))
+	out.WriteString(")")
+	return out.String()
+}
+
+// GlobalStatement represents a 'global' declaration
+type GlobalStatement struct {
+	Token token.Token   // the 'global' token
+	Names []*Identifier // variable names to declare as global
+}
+
+func (gs *GlobalStatement) statementNode()       {}
+func (gs *GlobalStatement) TokenLiteral() string { return gs.Token.Literal }
+func (gs *GlobalStatement) String() string {
+	var out strings.Builder
+	out.WriteString("global ")
+	names := make([]string, len(gs.Names))
+	for i, name := range gs.Names {
+		names[i] = identifierString(name)
+	}
+	out.WriteString(strings.Join(names, ", "))
+	out.WriteString(";")
+	return out.String()
+}
+
+// NonlocalStatement represents a 'nonlocal' declaration
+type NonlocalStatement struct {
+	Token token.Token   // the 'nonlocal' token
+	Names []*Identifier // variable names to declare as nonlocal
+}
+
+func (ns *NonlocalStatement) statementNode()       {}
+func (ns *NonlocalStatement) TokenLiteral() string { return ns.Token.Literal }
+func (ns *NonlocalStatement) String() string {
+	var out strings.Builder
+	out.WriteString("nonlocal ")
+	names := make([]string, len(ns.Names))
+	for i, name := range ns.Names {
+		names[i] = identifierString(name)
+	}
+	out.WriteString(strings.Join(names, ", "))
+	out.WriteString(";")
+	return out.String()
+}
+
+// LambdaExpression represents lambda (anonymous) functions
+type LambdaExpression struct {
+	Token      token.Token   // the 'lambda' token
+	Parameters []*Identifier // function parameters
+	Body       Expression    // function body (single expression)
+}
+
+func (le *LambdaExpression) expressionNode()      {}
+func (le *LambdaExpression) TokenLiteral() string { return le.Token.Literal }
+func (le *LambdaExpression) String() string {
+	var out strings.Builder
+	out.WriteString("lambda ")
+	
+	params := make([]string, len(le.Parameters))
+	for i, param := range le.Parameters {
+		params[i] = identifierString(param)
+	}
+	out.WriteString(strings.Join(params, ", "))
+	
+	out.WriteString(": ")
+	out.WriteString(expressionString(le.Body))
+	return out.String()
+}
+
+// WithStatement represents 'with' context manager statement
+type WithStatement struct {
+	Token      token.Token     // the 'with' token
+	Context    Expression      // context manager expression
+	Variable   *Identifier     // optional variable to bind context to
+	Body       *BlockStatement // body of with statement
+}
+
+func (ws *WithStatement) statementNode()       {}
+func (ws *WithStatement) TokenLiteral() string { return ws.Token.Literal }
+func (ws *WithStatement) String() string {
+	var out strings.Builder
+	out.WriteString("with ")
+	out.WriteString(expressionString(ws.Context))
+	if ws.Variable != nil {
+		out.WriteString(" as ")
+		out.WriteString(identifierString(ws.Variable))
+	}
+	out.WriteString(" ")
+	out.WriteString(ws.Body.String())
+	return out.String()
+}
+
+// YieldExpression represents 'yield' for generator functions
+type YieldExpression struct {
+	Token token.Token // the 'yield' token
+	Value Expression  // value to yield (optional)
+}
+
+func (ye *YieldExpression) expressionNode()      {}
+func (ye *YieldExpression) TokenLiteral() string { return ye.Token.Literal }
+func (ye *YieldExpression) String() string {
+	var out strings.Builder
+	out.WriteString("yield")
+	if ye.Value != nil {
+		out.WriteString(" ")
+		out.WriteString(expressionString(ye.Value))
+	}
 	return out.String()
 }

@@ -483,31 +483,57 @@ func (e *Environment) Set(name string, val Object) Object {
 
 // Update updates an existing variable in the scope where it was defined
 func (e *Environment) Update(name string, val Object) bool {
-	// First check current scope
-	if _, exists := e.store[name]; exists {
-		e.store[name] = val
-		return true
-	}
-	// If not found in current scope, check outer scope
-	if e.outer != nil {
-		return e.outer.Update(name, val)
-	}
-	// Variable not found in any scope
-	return false
+    // First check current scope
+    if _, exists := e.store[name]; exists {
+        e.store[name] = val
+        return true
+    }
+    // If not found in current scope, check outer scope
+    if e.outer != nil {
+        return e.outer.Update(name, val)
+    }
+    // Variable not found in any scope
+    return false
 }
 
 // GetAll returns all variables in the current environment (not including outer scopes)
 func (e *Environment) GetAll() map[string]Object {
-	result := make(map[string]Object)
-	for k, v := range e.store {
-		result[k] = v
-	}
-	return result
+    result := make(map[string]Object)
+    for k, v := range e.store {
+        result[k] = v
+    }
+    return result
+}
+
+// Delete removes a variable from the scope where it was defined.
+// Returns true if the variable was found and deleted, false otherwise.
+func (e *Environment) Delete(name string) bool {
+    // Check current scope first
+    if _, exists := e.store[name]; exists {
+        delete(e.store, name)
+        return true
+    }
+    // Recurse into outer scope if present
+    if e.outer != nil {
+        return e.outer.Delete(name)
+    }
+    return false
+}
+
+// Outer returns the immediately enclosing environment (one scope up), or nil if none.
+func (e *Environment) Outer() *Environment {
+    return e.outer
+}
+
+// HasLocal reports whether the given name exists in the current environment's local store.
+// This does not check outer scopes.
+func (e *Environment) HasLocal(name string) bool {
+    _, exists := e.store[name]
+    return exists
 }
 
 // تابع Free برای Environment اضافه نشده است زیرا معمولاً توسط
 // مکانیزم scope management در interpreter مدیریت می‌شود.
-
 type BuiltinFunction func(args ...Object) Object
 
 type Builtin struct {

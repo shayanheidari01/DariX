@@ -1,0 +1,111 @@
+// test_all.dax - Comprehensive DariX feature test
+
+print("=== DariX test_all.dax ===");
+
+// 1) Basics + assert
+var a = 1;
+var b = 2;
+assert a + b == 3, "basic math failed";
+
+// 1.1) Logical operators (not/and/or and symbolic &&/||)
+assert (not true) == false, "not failed";
+assert (true and false) == false, "and failed";
+assert (true or false) == true, "or failed";
+assert ((true && false) == false), "&& failed";
+assert ((true || false) == true), "|| failed";
+
+// 2) Arrays, maps, in/is
+var arr = [1, 2, 3];
+var mp = {"x": 10, "y": 20};
+assert (2 in arr), "membership in array failed";
+assert ("x" in mp), "membership in map key set failed";
+
+var obj = {"k": 1};
+var same = obj; // identity
+assert (obj is same), "identity check failed";
+
+// 3) pass + elif chain
+var v = 5;
+if (v < 0) {
+    pass;
+} else if (v == 5) {
+    print("elif branch executed");
+} else {
+    print("else branch");
+}
+
+// 4) global/nonlocal
+var g = 0;
+func inc_global() {
+    global g;
+    g = g + 1;
+}
+inc_global();
+assert g == 1, "global update failed";
+
+func outer() {
+    var x = 10;
+    func inner() {
+        nonlocal x;
+        x = x + 5;
+    }
+    inner();
+    return x;
+}
+assert outer() == 15, "nonlocal update failed";
+
+// 5) lambda
+var plus1 = lambda x: x + 1;
+assert plus1(41) == 42, "lambda failed";
+
+// 6) with statement using a simple context manager
+class Timer {
+    func __enter__(self) {
+        print("Timer enter");
+        return self;
+    }
+    func __exit__(self) {
+        print("Timer exit");
+    }
+}
+
+with (Timer()) as t {
+    print("inside with body");
+}
+
+// 7) del on variable, map key, and array index
+var tmp = 123;
+assert tmp == 123, "tmp set failed";
+del tmp;
+
+var tmpMap = {"a": 1, "b": 2};
+del tmpMap["a"];
+assert ("a" in tmpMap) == false, "map key delete failed";
+
+var tmpArr = [10, 20, 30];
+del tmpArr[1]; // After delete, we don't assert structure since semantics remove element or set null per impl; just ensure no crash
+
+// 8) try/catch with assert failure
+try {
+    assert false, "this should raise";
+    print("UNREACHABLE");
+} catch (e) {
+    print("caught assertion error");
+}
+
+// 9) nonlocal negative test: no enclosing binding
+try {
+    func outer_fail() {
+        func inner() {
+            nonlocal y;
+            y = 1;
+        }
+        inner();
+    }
+    outer_fail();
+    print("UNREACHABLE nonlocal");
+} catch (e) {
+    print("caught nonlocal error");
+}
+
+print("=== test_all.dax done ===");

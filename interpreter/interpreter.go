@@ -31,6 +31,90 @@ type Interpreter struct {
 	currentFile   string // Current source file being executed
 }
 
+// evalDelStatement handles deletion of identifiers, indexed elements, and members
+func (i *Interpreter) evalDelStatement(node *ast.DelStatement, env *object.Environment) object.Object {
+    switch target := node.Target.(type) {
+    case *ast.Identifier:
+        if ok := env.Delete(target.Value); !ok {
+            // Name not found: raise NameError-style runtime error
+            return object.NewError("name '%s' is not defined", target.Value)
+        }
+        return NULL
+
+    case *ast.IndexExpression:
+        left := i.eval(target.Left, env)
+        if isError(left) {
+            return left
+        }
+        index := i.eval(target.Index, env)
+        if isError(index) {
+            return index
+        }
+
+        switch container := left.(type) {
+        case *object.Array:
+            idx, ok := index.(*object.Integer)
+            if !ok {
+                return object.NewError("array index must be integer, got %s", index.Type())
+            }
+            if idx.Value < 0 || int(idx.Value) >= len(container.Elements) {
+                ex := object.NewException(object.INDEX_ERROR, fmt.Sprintf("array index out of range: %d", idx.Value))
+                return object.NewExceptionSignal(ex)
+            }
+            iidx := int(idx.Value)
+            container.Elements = append(container.Elements[:iidx], container.Elements[iidx+1:]...)
+            return NULL
+
+        case *object.Hash:
+            hk, ok := index.(object.Hashable)
+            if !ok {
+                return object.NewError("unusable as hash key: %s", index.Type())
+            }
+            delete(container.Pairs, hk.HashKey())
+            return NULL
+
+        case *object.Map:
+            // Delete entry with key equal to 'index'
+            for k := range container.Pairs {
+                if object.Equals(k, index) {
+                    delete(container.Pairs, k)
+                    return NULL
+                }
+            }
+            return NULL
+
+        default:
+            return object.NewError("index delete not supported on %s", left.Type())
+        }
+
+    case *ast.MemberExpression:
+        left := i.eval(target.Left, env)
+        if isError(left) {
+            return left
+        }
+        prop := target.Property.Value
+        switch obj := left.(type) {
+        case *object.Instance:
+            if _, ok := obj.Fields[prop]; ok {
+                delete(obj.Fields, prop)
+                return NULL
+            }
+            return object.NewError("attribute '%s' not found on instance of '%s'", prop, obj.Class.Name)
+        case *object.Class:
+            if _, ok := obj.Members[prop]; ok {
+                delete(obj.Members, prop)
+                return NULL
+            }
+            return object.NewError("attribute '%s' not found on class '%s'", prop, obj.Name)
+        default:
+            return object.NewError("member delete not supported on type %T", obj)
+        }
+
+    default:
+        return object.NewError("invalid del target: %T", target)
+    }
+}
+
 func New() *Interpreter {
 	inter := &Interpreter{
 		env:           object.NewEnvironment(),
@@ -908,6 +992,16 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 		// Standalone blocks don't create new scope - just execute statements in current environment
 		return i.evalBlockStatementWithScoping(node.Block, env, false)
 
+	case *ast.PassStatement:
+		// no-op placeholder
+		return NULL
+
+	case *ast.DelStatement:
+		return i.evalDelStatement(node, env)
+
+	case *ast.AssertStatement:
+		return i.evalAssertStatement(node, env)
+
 	case *ast.Null:
 		return NULL
 
@@ -932,7 +1026,7 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 
 	case *ast.InfixExpression:
 		// Handle logical operators with short-circuit evaluation
-		if node.Operator == "&&" {
+		if node.Operator == "&&" || node.Operator == "and" {
 			left := i.eval(node.Left, env)
 			if isError(left) {
 				return left
@@ -945,7 +1039,7 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 				return right
 			}
 			return nativeBoolToBooleanObject(isTruthy(right))
-		} else if node.Operator == "||" {
+		} else if node.Operator == "||" || node.Operator == "or" {
 			left := i.eval(node.Left, env)
 			if isError(left) {
 				return left
@@ -984,7 +1078,19 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 			Env:        env,
 			Body:       node.Body,
 		}
-		env.Set(node.Name.Value, fn)
+		// Apply decorators if present
+		var decorated object.Object = fn
+		if node.Decorators != nil && len(node.Decorators) > 0 {
+			decorated = i.applyDecorators(node.Decorators, decorated, env)
+			// Propagate exceptions or errors
+			if _, isEx := decorated.(*object.ExceptionSignal); isEx {
+				return decorated
+			}
+			if isError(decorated) {
+				return decorated
+			}
+		}
+		env.Set(node.Name.Value, decorated)
 		return NULL
 
 	case *ast.FunctionLiteral:
@@ -1072,6 +1178,32 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 
 	case *ast.MemberExpression:
 		return i.evalMemberExpression(node, env)
+
+	case *ast.InExpression:
+		return i.evalInExpression(node, env)
+
+	case *ast.IsExpression:
+		return i.evalIsExpression(node, env)
+
+	case *ast.WithStatement:
+		return i.evalWithStatement(node, env)
+
+	case *ast.GlobalStatement:
+		return i.evalGlobalStatement(node, env)
+
+	case *ast.NonlocalStatement:
+		return i.evalNonlocalStatement(node, env)
+
+	case *ast.LambdaExpression:
+		// Wrap lambda body expression into a single-expression block
+		block := &ast.BlockStatement{Token: node.Token, Statements: []ast.Statement{
+			&ast.ExpressionStatement{Token: node.Token, Expression: node.Body},
+		}}
+		return &object.Function{
+			Parameters: node.Parameters,
+			Env:        env,
+			Body:       block,
+		}
 
 	default:
 		return object.NewError("unknown node type: %T", node)
@@ -1967,78 +2099,121 @@ func convertToPointerFrames(frames []object.StackFrame) []*object.StackFrame {
 
 // evalClassDeclaration evaluates class declarations
 func (i *Interpreter) evalClassDeclaration(node *ast.ClassDeclaration, env *object.Environment) object.Object {
-	// Create a new class object
-	class := &object.Class{
-		Name:    node.Name.Value,
-		Members: make(map[string]object.Object),
-	}
+    // Create a new class object
+    class := &object.Class{
+        Name:    node.Name.Value,
+        Members: make(map[string]object.Object),
+    }
 
-	// Create a new environment for the class body
-	classEnv := object.NewEnclosedEnvironment(env)
-	
-	// Evaluate the class body to collect methods and class variables
-	for _, stmt := range node.Body.Statements {
-		switch s := stmt.(type) {
-		case *ast.FunctionDeclaration:
-			// Add method to class
-			fn := &object.Function{
-				Name:       s.Name.Value,
-				Parameters: s.Parameters,
-				Env:        classEnv,
-				Body:       s.Body,
-			}
-			class.Members[s.Name.Value] = fn
-		case *ast.LetStatement:
-			// Add class variable
-			val := i.eval(s.Value, classEnv)
-			if isError(val) {
-				return val
-			}
-			class.Members[s.Name.Value] = val
-		}
-	}
+    // Create a new environment for the class body
+    classEnv := object.NewEnclosedEnvironment(env)
+    
+    // Evaluate the class body to collect methods and class variables
+    for _, stmt := range node.Body.Statements {
+        switch s := stmt.(type) {
+        case *ast.FunctionDeclaration:
+            // Add method to class
+            fn := &object.Function{
+                Name:       s.Name.Value,
+                Parameters: s.Parameters,
+                Env:        classEnv,
+                Body:       s.Body,
+            }
+            // Apply method decorators if any (evaluated in class body environment)
+            var decorated object.Object = fn
+            if s.Decorators != nil && len(s.Decorators) > 0 {
+                decorated = i.applyDecorators(s.Decorators, decorated, classEnv)
+                if _, isEx := decorated.(*object.ExceptionSignal); isEx {
+                    return decorated
+                }
+                if isError(decorated) {
+                    return decorated
+                }
+            }
+            class.Members[s.Name.Value] = decorated
+        case *ast.LetStatement:
+            // Add class variable
+            val := i.eval(s.Value, classEnv)
+            if isError(val) {
+                return val
+            }
+            class.Members[s.Name.Value] = val
+        }
+    }
 
-	// Register the class in the environment
-	env.Set(node.Name.Value, class)
-	return NULL
+    // Apply class decorators if present (evaluated in enclosing environment)
+    var finalClass object.Object = class
+    if node.Decorators != nil && len(node.Decorators) > 0 {
+        finalClass = i.applyDecorators(node.Decorators, class, env)
+        if _, isEx := finalClass.(*object.ExceptionSignal); isEx {
+            return finalClass
+        }
+        if isError(finalClass) {
+            return finalClass
+        }
+    }
+
+    // Register the (possibly decorated) class in the environment
+    env.Set(node.Name.Value, finalClass)
+    return NULL
 }
 
+// applyDecorators applies a list of decorator expressions to a target object.
+// Decorators are applied from bottom-to-top (i.e., the last decorator wraps first),
+// matching common decorator semantics.
+func (i *Interpreter) applyDecorators(decorators []ast.Expression, target object.Object, env *object.Environment) object.Object {
+    decorated := target
+    for idx := len(decorators) - 1; idx >= 0; idx-- {
+        decExpr := decorators[idx]
+        dec := i.eval(decExpr, env)
+        if isError(dec) {
+            return dec
+        }
+        if ex, isEx := dec.(*object.ExceptionSignal); isEx {
+            return ex
+        }
+        // Call decorator with current decorated object
+        res := i.applyFunction(dec, []object.Object{decorated})
+        if isError(res) {
+            return res
+        }
+        if ex, isEx := res.(*object.ExceptionSignal); isEx {
+            return ex
+        }
+        decorated = res
+    }
+    return decorated
+}
 // evalMemberExpression evaluates member access expressions like obj.prop
 func (i *Interpreter) evalMemberExpression(node *ast.MemberExpression, env *object.Environment) object.Object {
-	left := i.eval(node.Left, env)
-	if isError(left) {
-		return left
-	}
-
-	switch obj := left.(type) {
-	case *object.Instance:
-		// Check instance fields first
-		if field, exists := obj.Fields[node.Property.Value]; exists {
-			return field
-		}
-		// Then check class methods
-		if method, exists := obj.Class.Members[node.Property.Value]; exists {
-			// For methods, we need to bind 'self' to the instance
-			if fn, ok := method.(*object.Function); ok {
-				return &object.BoundMethod{
-					Self: obj,
-					Fn:   fn,
-				}
-			}
-			return method
-		}
-		return object.NewError("property '%s' not found on instance of class '%s'", node.Property.Value, obj.Class.Name)
-	
-	case *object.Class:
-		// Access class members directly
-		if member, exists := obj.Members[node.Property.Value]; exists {
-			return member
-		}
-		return object.NewError("property '%s' not found on class '%s'", node.Property.Value, obj.Name)
-	
-	default:
-		return object.NewError("member access not supported on type %T", obj)
-	}
+    left := i.eval(node.Left, env)
+    if isError(left) {
+        return left
+    }
+    switch obj := left.(type) {
+    case *object.Instance:
+        // Check instance fields first
+        if field, exists := obj.Fields[node.Property.Value]; exists {
+            return field
+        }
+        // Then check class methods
+        if method, exists := obj.Class.Members[node.Property.Value]; exists {
+            // For methods, we need to bind 'self' to the instance
+            if fn, ok := method.(*object.Function); ok {
+                return &object.BoundMethod{Self: obj, Fn: fn}
+            }
+            return method
+        }
+        return object.NewError("property '%s' not found on instance of class '%s'", node.Property.Value, obj.Class.Name)
+    case *object.Class:
+        // Access class members directly
+        if member, exists := obj.Members[node.Property.Value]; exists {
+            return member
+        }
+        return object.NewError("property '%s' not found on class '%s'", node.Property.Value, obj.Name)
+    default:
+        return object.NewError("member access not supported on type %T", obj)
+    }
 }
 
 // evalMemberAssignment handles member assignment like obj.prop = value

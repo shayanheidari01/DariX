@@ -30,6 +30,10 @@ var precedences = map[token.TokenType]int{
 	token.ASSIGN:   ASSIGN,
 	token.OR:       OR,
 	token.AND:      AND,
+	token.OR_KW:    OR,      // 'or' keyword
+	token.AND_KW:   AND,     // 'and' keyword
+	token.IN:       EQUALS,  // 'in' operator
+	token.IS:       EQUALS,  // 'is' operator
 	token.EQ:       EQUALS,
 	token.NOT_EQ:   EQUALS,
 	token.LT:       LESSGREATER,
@@ -93,16 +97,19 @@ func (p *Parser) registerParseFns() {
 	p.prefixParseFns[token.STRING] = p.parseStringLiteral
 	p.prefixParseFns[token.BANG] = p.parsePrefixExpression
 	p.prefixParseFns[token.MINUS] = p.parsePrefixExpression
+	p.prefixParseFns[token.NOT_KW] = p.parsePrefixExpression  // 'not' keyword
 	p.prefixParseFns[token.TRUE] = p.parseBoolean
 	p.prefixParseFns[token.FALSE] = p.parseBoolean
 	p.prefixParseFns[token.NULL] = p.parseNull
 	p.prefixParseFns[token.LPAREN] = p.parseGroupedExpression
 	p.prefixParseFns[token.IF] = p.parseIfExpression
 	p.prefixParseFns[token.FUNCTION] = p.parseFunctionLiteral
+	p.prefixParseFns[token.LAMBDA] = p.parseLambdaExpression  // lambda expressions
 	p.prefixParseFns[token.WHILE] = p.parseWhileExpression
 	p.prefixParseFns[token.FOR] = p.parseForExpression
 	p.prefixParseFns[token.LBRACKET] = p.parseArrayLiteral
 	p.prefixParseFns[token.LBRACE] = p.parseMapLiteral
+	p.prefixParseFns[token.YIELD] = p.parseYieldExpression  // yield expressions
 
 	// Infix functions
 	p.infixParseFns[token.ASSIGN] = p.parseAssignmentExpression
@@ -119,6 +126,11 @@ func (p *Parser) registerParseFns() {
 	p.infixParseFns[token.GE] = p.parseInfixExpression
 	p.infixParseFns[token.OR] = p.parseInfixExpression
 	p.infixParseFns[token.AND] = p.parseInfixExpression
+	// New keyword operators
+	p.infixParseFns[token.OR_KW] = p.parseInfixExpression   // 'or' keyword
+	p.infixParseFns[token.AND_KW] = p.parseInfixExpression  // 'and' keyword
+	p.infixParseFns[token.IN] = p.parseInExpression         // 'in' operator
+	p.infixParseFns[token.IS] = p.parseIsExpression         // 'is' operator
 	p.infixParseFns[token.LPAREN] = p.parseCallExpression
 	p.infixParseFns[token.LBRACKET] = p.parseIndexExpression
 	p.infixParseFns[token.DOT] = p.parseMemberExpression
@@ -174,6 +186,21 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseTryStatement()
 	case token.THROW, token.RAISE:
 		return p.parseThrowStatement()
+	// New keywords
+	case token.DEL:
+		return p.parseDelStatement()
+	case token.ASSERT:
+		return p.parseAssertStatement()
+	case token.PASS:
+		return p.parsePassStatement()
+	case token.GLOBAL:
+		return p.parseGlobalStatement()
+	case token.NONLOCAL:
+		return p.parseNonlocalStatement()
+	case token.AT:
+		return p.parseDecoratedDefinition()
+	case token.WITH:
+		return p.parseWithStatement()
 	case token.LBRACE:
 		// Parse standalone block statements
 		return p.parseBlockStatementAsStatement()
@@ -278,6 +305,10 @@ func (p *Parser) parseNull() ast.Expression {
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
 	expr := &ast.PrefixExpression{Token: p.curToken, Operator: p.curToken.Literal}
+	// Normalize 'not' keyword to '!' for interpreter compatibility
+	if p.curToken.Type == token.NOT_KW {
+		expr.Operator = "!"
+	}
 	p.nextToken()
 	expr.Right = p.parseExpression(PREFIX)
 	return expr
@@ -988,4 +1019,219 @@ func (p *Parser) parseWhileExpression() ast.Expression {
 	}
 	p.addError("expected while statement")
 	return nil
+}
+
+// ===== NEW KEYWORD PARSING FUNCTIONS =====
+
+// parseDelStatement parses 'del' statements
+func (p *Parser) parseDelStatement() ast.Statement {
+	stmt := &ast.DelStatement{Token: p.curToken}
+	
+	p.nextToken()
+	
+	// Parse the target (identifier, index expression, or member expression)
+	stmt.Target = p.parseExpression(LOWEST)
+	if stmt.Target == nil {
+		return nil
+	}
+	
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+	
+	return stmt
+}
+
+// parseAssertStatement parses 'assert' statements
+func (p *Parser) parseAssertStatement() ast.Statement {
+	stmt := &ast.AssertStatement{Token: p.curToken}
+	
+	p.nextToken()
+	
+	// Parse the condition
+	stmt.Condition = p.parseExpression(LOWEST)
+	if stmt.Condition == nil {
+		return nil
+	}
+	
+	// Check for optional message
+	if p.peekToken.Type == token.COMMA {
+		p.nextToken() // consume comma
+		p.nextToken() // move to message
+		stmt.Message = p.parseExpression(LOWEST)
+	}
+	
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+	
+	return stmt
+}
+
+// parsePassStatement parses 'pass' statements
+func (p *Parser) parsePassStatement() ast.Statement {
+	stmt := &ast.PassStatement{Token: p.curToken}
+	
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+	
+	return stmt
+}
+
+// parseGlobalStatement parses 'global' statements
+func (p *Parser) parseGlobalStatement() ast.Statement {
+	stmt := &ast.GlobalStatement{Token: p.curToken}
+	
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	
+	stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	
+	// Parse additional identifiers separated by commas
+	for p.peekToken.Type == token.COMMA {
+		p.nextToken() // consume comma
+		if !p.expectPeek(token.IDENT) {
+			return nil
+		}
+		stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+	
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+	
+	return stmt
+}
+
+// parseNonlocalStatement parses 'nonlocal' statements
+func (p *Parser) parseNonlocalStatement() ast.Statement {
+	stmt := &ast.NonlocalStatement{Token: p.curToken}
+	
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	
+	stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	
+	// Parse additional identifiers separated by commas
+	for p.peekToken.Type == token.COMMA {
+		p.nextToken() // consume comma
+		if !p.expectPeek(token.IDENT) {
+			return nil
+		}
+		stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+	
+	if p.peekToken.Type == token.SEMICOLON {
+		p.nextToken()
+	}
+	
+	return stmt
+}
+
+// parseWithStatement parses 'with' statements
+func (p *Parser) parseWithStatement() ast.Statement {
+	stmt := &ast.WithStatement{Token: p.curToken}
+	
+	p.nextToken()
+	
+	// Parse context expression
+	stmt.Context = p.parseExpression(LOWEST)
+	if stmt.Context == nil {
+		return nil
+	}
+	
+	// Check for optional 'as' variable
+	if p.peekToken.Type == token.AS {
+		p.nextToken() // consume 'as'
+		if !p.expectPeek(token.IDENT) {
+			return nil
+		}
+		stmt.Variable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+	
+	// Parse body block
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+	
+	stmt.Body = p.parseBlockStatement()
+	return stmt
+}
+
+// parseLambdaExpression parses lambda expressions
+func (p *Parser) parseLambdaExpression() ast.Expression {
+	expr := &ast.LambdaExpression{Token: p.curToken}
+	
+	// Parse parameters (optional)
+	if p.peekToken.Type == token.IDENT {
+		p.nextToken()
+		expr.Parameters = append(expr.Parameters, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		
+		// Parse additional parameters separated by commas
+		for p.peekToken.Type == token.COMMA {
+			p.nextToken() // consume comma
+			if !p.expectPeek(token.IDENT) {
+				return nil
+			}
+			expr.Parameters = append(expr.Parameters, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		}
+	}
+	
+	// Expect colon
+	if !p.expectPeek(token.COLON) {
+		return nil
+	}
+	
+	// Parse body expression
+	p.nextToken()
+	expr.Body = p.parseExpression(LOWEST)
+	if expr.Body == nil {
+		return nil
+	}
+	
+	return expr
+}
+
+// parseYieldExpression parses yield expressions
+func (p *Parser) parseYieldExpression() ast.Expression {
+	expr := &ast.YieldExpression{Token: p.curToken}
+	
+	// Check if there's a value to yield
+	if p.peekToken.Type != token.SEMICOLON && p.peekToken.Type != token.RBRACE && p.peekToken.Type != token.EOF {
+		p.nextToken()
+		expr.Value = p.parseExpression(LOWEST)
+	}
+	
+	return expr
+}
+
+// parseInExpression parses 'in' expressions
+func (p *Parser) parseInExpression(left ast.Expression) ast.Expression {
+	expr := &ast.InExpression{
+		Token: p.curToken,
+		Left:  left,
+	}
+	
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expr.Right = p.parseExpression(precedence)
+	
+	return expr
+}
+
+// parseIsExpression parses 'is' expressions
+func (p *Parser) parseIsExpression(left ast.Expression) ast.Expression {
+	expr := &ast.IsExpression{
+		Token: p.curToken,
+		Left:  left,
+	}
+	
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expr.Right = p.parseExpression(precedence)
+	
+	return expr
 }
