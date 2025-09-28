@@ -1,0 +1,38 @@
+// Hello World example
+var greeting = "Hello, DariX!";
+print(greeting);
+
+// Basic arithmetic
+var x = 10;
+var y = 20;
+var sum = x + y;
+print("Sum:", sum);
+
+// Arrays
+var numbers = [1, 2, 3, 4, 5];
+print("Array length:", len(numbers));
+
+// Functions
+func factorial(n) {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+print("Factorial of 5:", factorial(5));
+
+// Classes
+class Point {
+    func __init__(self, x, y) {
+        self.x = x;
+        self.y = y;
+    }
+
+    func distance(self) {
+        return self.x * self.x + self.y * self.y;
+    }
+}
+
+var p = Point(3, 4);
+print("Distance from origin:", p.distance());
