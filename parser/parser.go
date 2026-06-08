@@ -226,19 +226,6 @@ func (p *Parser) isAssignment() bool {
 	return false
 }
 
-type parserState struct {
-	curToken  token.Token
-	peekToken token.Token
-}
-
-func (p *Parser) saveState() parserState {
-	return parserState{p.curToken, p.peekToken}
-}
-
-func (p *Parser) restoreState(state parserState) {
-	p.curToken = state.curToken
-	p.peekToken = state.peekToken
-}
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]

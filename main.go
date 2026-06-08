@@ -269,32 +269,6 @@ func handleParseErrors(errors []string) {
 	os.Exit(1)
 }
 
-// Enhanced error display for runtime errors
-func displayRuntimeError(err object.Object, filename string) {
-	if errorObj, ok := err.(*object.Error); ok {
-		fmt.Fprintf(os.Stderr, " Runtime Error:\n")
-		fmt.Fprintf(os.Stderr, "=================\n")
-		
-		// Set filename if not already set
-		if errorObj.Position.Filename == "" && filename != "" {
-			errorObj.Position.Filename = filename
-		}
-		
-		fmt.Fprintf(os.Stderr, "%s\n", errorObj.Inspect())
-		
-		// Add helpful tips based on error type
-		switch errorObj.ErrorType {
-		case "NameError":
-			fmt.Fprintf(os.Stderr, "\n Tip: Make sure the variable or function is declared before use.\n")
-		case "TypeError":
-			fmt.Fprintf(os.Stderr, "\n Tip: Check that you're using the correct data types for this operation.\n")
-		case "RuntimeError":
-			fmt.Fprintf(os.Stderr, "\n Tip: Check your logic and ensure all operations are valid.\n")
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, " Runtime Error: %s\n", err.Inspect())
-	}
-}
 
 func handleFileError(err error, operation string) {
 	fmt.Printf("Error %s file: %s\n", operation, err)

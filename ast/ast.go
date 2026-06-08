@@ -58,12 +58,6 @@ func statementsString(stmts []Statement) string {
 	return out.String()
 }
 
-func statementString(stmt Statement) string {
-	if stmt == nil {
-		return ""
-	}
-	return stmt.String()
-}
 
 func expressionString(expr Expression) string {
 	if expr == nil {

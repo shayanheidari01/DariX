@@ -433,7 +433,7 @@ func httpUpload(args ...object.Object) object.Object {
 			for key, value := range fieldsObj.Pairs {
 				if keyStr, ok := key.(*object.String); ok {
 					if valueStr, ok := value.(*object.String); ok {
-						writer.WriteField(keyStr.Value, valueStr.Value)
+						_ = writer.WriteField(keyStr.Value, valueStr.Value)
 					}
 				}
 			}

@@ -637,7 +637,7 @@ func handleRequest(server *HTTPServer, route HTTPRoute, w http.ResponseWriter, r
     </div>
 </body>
 </html>`
-			w.Write([]byte(html))
+			_, _ = w.Write([]byte(html))
 			return
 		}
 		
@@ -659,5 +659,5 @@ func handleRequest(server *HTTPServer, route HTTPRoute, w http.ResponseWriter, r
 		return
 	}
 	
-	w.Write(jsonData)
+	_, _ = w.Write(jsonData)
 }

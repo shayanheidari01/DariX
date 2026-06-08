@@ -127,56 +127,6 @@ func New() *Interpreter {
 	return inter
 }
 
-func builtinError(name, format string, args ...any) object.Object {
-	return object.NewError(name+": "+format, args...)
-}
-
-// Enhanced error creation with suggestions
-func builtinErrorWithSuggestion(name, format, suggestion string, args ...any) object.Object {
-	err := object.NewError(name+": "+format, args...)
-	err.WithSuggestion(suggestion)
-	return err
-}
-
-func expectExactArgs(name string, args []object.Object, expected int) object.Object {
-	if len(args) != expected {
-		return builtinError(name, "expected %d argument(s), got %d", expected, len(args))
-	}
-	return nil
-}
-
-func expectArgsRange(name string, args []object.Object, min, max int) object.Object {
-	if len(args) < min || len(args) > max {
-		if min == max {
-			return builtinError(name, "expected %d argument(s), got %d", min, len(args))
-		}
-		return builtinError(name, "expected %d-%d arguments, got %d", min, max, len(args))
-	}
-	return nil
-}
-
-func expectMinArgs(name string, args []object.Object, min int) object.Object {
-	if len(args) < min {
-		return builtinError(name, "expected at least %d argument(s)", min)
-	}
-	return nil
-}
-
-func requireStringArg(name, label string, value object.Object) (*object.String, object.Object) {
-	str, ok := value.(*object.String)
-	if !ok {
-		return nil, builtinError(name, "%s must be string, got %s", label, value.Type())
-	}
-	return str, nil
-}
-
-func requireArrayArg(name, label string, value object.Object) (*object.Array, object.Object) {
-	arr, ok := value.(*object.Array)
-	if !ok {
-		return nil, builtinError(name, "%s must be an array, got %s", label, value.Type())
-	}
-	return arr, nil
-}
 
 // GetEnvironment returns the current environment for REPL introspection
 func (i *Interpreter) GetEnvironment() *object.Environment {
@@ -315,7 +265,7 @@ func (i *Interpreter) initBuiltins() {
 					fmt.Print(args[0].Inspect())
 				}
 				var s string
-				fmt.Scanln(&s)
+				_, _ = fmt.Scanln(&s)
 				return object.NewString(s)
 			},
 		},
@@ -1081,7 +1031,7 @@ func (i *Interpreter) eval(node ast.Node, env *object.Environment) object.Object
 		}
 		// Apply decorators if present
 		var decorated object.Object = fn
-		if node.Decorators != nil && len(node.Decorators) > 0 {
+		if len(node.Decorators) > 0 {
 			decorated = i.applyDecorators(node.Decorators, decorated, env)
 			// Propagate exceptions or errors
 			if _, isEx := decorated.(*object.ExceptionSignal); isEx {
@@ -2056,73 +2006,6 @@ func (i *Interpreter) currentStackTrace() []object.StackFrame {
     return frames
 }
 
-// createEnhancedError creates an error with full context
-func (i *Interpreter) createEnhancedError(errorType, message string, node ast.Node) *object.Error {
-    pos := i.getNodePosition(node)
-    context := i.getSourceContext(pos)
-    
-    err := &object.Error{
-        Message:    message,
-        ErrorType:  errorType,
-        Position:   pos,
-        StackTrace: i.currentStackTrace(),
-    }
-    
-    if context != "" {
-        err.StackTrace = append(err.StackTrace, object.StackFrame{
-            FunctionName: "<current>",
-            Position:     pos,
-            Context:      context,
-        })
-    }
-    
-    return err
-}
-
-// getNodePosition extracts position from AST node
-func (i *Interpreter) getNodePosition(node ast.Node) object.Position {
-    if node == nil {
-        return object.Position{Filename: i.currentFile}
-    }
-    
-    // Try to get position from node (this would need to be added to AST nodes)
-    // For now, return basic info
-    return object.Position{
-        Filename: i.currentFile,
-        Line:     1, // Would need to be extracted from node
-        Column:   1, // Would need to be extracted from node
-    }
-}
-
-// getSourceContext gets source code around the error position
-func (i *Interpreter) getSourceContext(pos object.Position) string {
-    // This would read the source file and extract context around the line
-    // For now, return empty string
-    return ""
-}
-
-// SetCurrentFile sets the current file being executed
-func (i *Interpreter) SetCurrentFile(filename string) {
-    i.currentFile = filename
-}
-
-// convertToPointerFrames converts []StackFrame to []*StackFrame for compatibility
-func convertToPointerFrames(frames []object.StackFrame) []*object.StackFrame {
-    result := make([]*object.StackFrame, len(frames))
-    for i := range frames {
-        // Create pointer to the frame
-        result[i] = &frames[i]
-    }
-    return result
-}
-
-// evalClassDeclaration evaluates class declarations
-func (i *Interpreter) evalClassDeclaration(node *ast.ClassDeclaration, env *object.Environment) object.Object {
-    // Create a new class object
-    class := &object.Class{
-        Name:    node.Name.Value,
-        Members: make(map[string]object.Object),
-    }
 
     // Create a new environment for the class body
     classEnv := object.NewEnclosedEnvironment(env)
@@ -2140,7 +2023,7 @@ func (i *Interpreter) evalClassDeclaration(node *ast.ClassDeclaration, env *obje
             }
             // Apply method decorators if any (evaluated in class body environment)
             var decorated object.Object = fn
-            if s.Decorators != nil && len(s.Decorators) > 0 {
+            if len(s.Decorators) > 0 {
                 decorated = i.applyDecorators(s.Decorators, decorated, classEnv)
                 if _, isEx := decorated.(*object.ExceptionSignal); isEx {
                     return decorated
@@ -2162,7 +2045,7 @@ func (i *Interpreter) evalClassDeclaration(node *ast.ClassDeclaration, env *obje
 
     // Apply class decorators if present (evaluated in enclosing environment)
     var finalClass object.Object = class
-    if node.Decorators != nil && len(node.Decorators) > 0 {
+    if len(node.Decorators) > 0 {
         finalClass = i.applyDecorators(node.Decorators, class, env)
         if _, isEx := finalClass.(*object.ExceptionSignal); isEx {
             return finalClass
