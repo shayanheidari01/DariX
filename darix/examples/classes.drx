@@ -1,0 +1,55 @@
+# Classes and OOP in DariX
+
+# Base class
+class Animal {
+    var name: String
+    
+    fn init(name: String) {
+        this.name = name
+    }
+    
+    fn speak(): String {
+        return "..."
+    }
+}
+
+# Class with inheritance
+class Dog extends Animal {
+    var breed: String
+    
+    fn init(name: String, breed: String) {
+        super.init(name)
+        this.breed = breed
+    }
+    
+    @override
+    fn speak(): String {
+        return "{name} says Woof!"
+    }
+}
+
+# Mixin example
+mixin Flyable {
+    fn fly() {
+        print("Flying high!")
+    }
+}
+
+class Bird extends Animal with Flyable {
+    fn init(name: String) {
+        super.init(name)
+    }
+    
+    @override
+    fn speak(): String {
+        return "{name} chirps!"
+    }
+}
+
+# Usage
+var dog = Dog("Buddy", "Golden Retriever")
+print(dog.speak())
+
+var bird = Bird("Tweety")
+bird.fly()
+print(bird.speak())

@@ -1,0 +1,31 @@
+# Functions in DariX
+
+# Regular function
+fn add(a: int, b: int): int {
+    return a + b
+}
+
+# Arrow function (expression-bodied)
+fn multiply = (a, b) => a * b
+
+# Async function
+async fn fetchData(url: String) {
+    var response = await http.get(url)
+    return response.json()
+}
+
+# Function with default parameters
+fn greet(name: String, greeting: String = "Hello"): String {
+    return "{greeting}, {name}!"
+}
+
+# Named arguments
+var result = greet(name: "Alice", greeting: "Hi")
+
+# Lambda/anonymous function
+var numbers = [1, 2, 3, 4, 5]
+var squares = numbers.map(fn(x) => x * x)
+
+print(add(5, 3))
+print(multiply(4, 6))
+print(result)

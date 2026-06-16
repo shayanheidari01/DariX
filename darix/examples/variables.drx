@@ -1,0 +1,17 @@
+# Variables and Types in DariX
+
+var x = 10          # Dynamic typing
+let y: int = 20     # Static typing with let (immutable)
+const PI = 3.14159  # Constant
+
+# String interpolation
+var name = "DariX"
+var greeting = "Welcome to {name}!"
+
+# Null safety
+var nullable: String? = null
+var nonNull: String! = "Hello"
+
+# Type checking
+var z = x + y
+print("Sum: {z}")

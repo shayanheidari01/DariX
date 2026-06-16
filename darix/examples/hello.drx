@@ -1,0 +1,6 @@
+# Hello World in DariX
+fn main() {
+    print("Hello, DariX!")
+}
+
+main()
