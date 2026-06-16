@@ -1,23 +1,22 @@
 ```
 # Build artifacts
 build/
-cmake-build*/
-CMakeFiles/
-CMakeCache.txt
-Makefile
+dist/
 *.o
-*.a
-*.so
-*.dylib
-*.exe
-*.dll
+*.obj
+*.out
 
 # Dependencies
 vendor/
+node_modules/
+.venv/
+venv/
+__pycache__/
 
 # Logs and temp files
 *.log
 *.tmp
+*.swp
 
 # Environment
 .env
@@ -27,10 +26,53 @@ vendor/
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
+
+# Go specific
+*.a
+*.so
+
+# C++ specific
+*.d
+*.i
+*.ii
+*.s
+*.mod
+*.ii.gcov
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Testing
+*.test
+*.prof
 
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Archives
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 ```
