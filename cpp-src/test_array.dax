@@ -1,0 +1,53 @@
+import array
+
+print("=== Array Module Tests ===")
+
+var nums = [1, 2, 3, 4, 5]
+print("first:", array.first(nums))
+print("last:", array.last(nums))
+print("take:", array.take(nums, 3))
+print("drop:", array.drop(nums, 2))
+print("enumerate:", array.enumerate(nums))
+
+print("contains 3:", array.contains_value(nums, 3))
+print("contains 99:", array.contains_value(nums, 99))
+print("index of 4:", array.index_of(nums, 4))
+print("index of 99:", array.index_of(nums, 99))
+
+print("unique:", array.unique([1, 2, 2, 3, 3, 3]))
+print("flatten:", array.flatten([[1, 2], [3, 4], [5]]))
+print("chunk:", array.chunk(nums, 2))
+
+var a = [1, 2, 3]
+var b = ["a", "b", "c"]
+print("zip:", array.zip(a, b))
+print("unzip:", array.unzip(array.zip(a, b)))
+
+var x = [1, 2, 3, 4]
+var y = [3, 4, 5, 6]
+print("diff:", array.diff(x, y))
+print("intersect:", array.intersect(x, y))
+print("union:", array.union(x, y))
+
+print("filter even:", array.filter(nums, lambda x: x % 2 == 0))
+print("map double:", array.map(nums, lambda x: x * 2))
+print("reduce sum:", array.reduce(nums, lambda a, b: a + b, 0))
+print("all positive:", array.all(nums, lambda x: x > 0))
+print("any negative:", array.any(nums, lambda x: x < 0))
+
+print("find > 3:", array.find(nums, lambda x: x > 3))
+print("find > 10:", array.find(nums, lambda x: x > 10))
+print("find_all > 3:", array.find_all(nums, lambda x: x > 3))
+
+print("partition:", array.partition(nums, lambda x: x % 2 == 0))
+print("sort:", array.sort_by([3, 1, 4, 1, 5, 9], lambda x: x))
+print("group:", array.group_by(nums, lambda x: x % 2))
+
+var sum = 0
+array.each(nums, lambda x: sum = sum + x)
+print("each sum:", sum)
+
+print("min:", array.min_by(nums, lambda x: x))
+print("max:", array.max_by(nums, lambda x: x))
+
+print("\nALL ARRAY TESTS COMPLETE")

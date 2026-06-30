@@ -1,0 +1,58 @@
+import set
+
+print("=== Set Module Tests ===")
+
+// Construction
+var s = set.from_array([1, 2, 2, 3, 3, 3])
+print("from_array:", s)
+print("to_array:", set.to_array(s))
+print("size:", set.size(s))
+print("is_empty:", set.is_empty(set.from_array([])))
+
+// Membership
+print("contains 2:", set.contains(s, 2))
+print("contains 99:", set.contains(s, 99))
+
+// Add/Remove (returns new set)
+var s2 = set.add(s, 4)
+print("add 4:", s2)
+var s3 = set.remove(s2, 4)
+print("remove 4:", s3)
+
+// Set operations
+var a = set.from_array([1, 2, 3, 4])
+var b = set.from_array([3, 4, 5, 6])
+print("union:", set.union(a, b))
+print("intersection:", set.intersection(a, b))
+print("difference:", set.difference(a, b))
+print("sym_diff:", set.symmetric_difference(a, b))
+
+// Subset/Superset
+print("is_subset:", set.is_subset(set.from_array([1, 2]), a))
+print("is_superset:", set.is_superset(a, set.from_array([1, 2])))
+print("is_disjoint:", set.is_disjoint(set.from_array([1, 2]), set.from_array([3, 4])))
+print("not disjoint:", set.is_disjoint(a, b))
+
+// Power set
+print("power:", set.power(set.from_array([1, 2])))
+
+// Cartesian product
+print("cartesian:", set.cartesian(set.from_array([1, 2]), set.from_array(["a", "b"])))
+
+// Functional
+print("fold sum:", set.fold(set.from_array([1, 2, 3, 4]), lambda acc, x: acc + x, 0))
+print("map_set:", set.map_set(set.from_array([1, 2, 3]), lambda x: x * 2))
+print("filter_set:", set.filter_set(set.from_array([1, 2, 3, 4, 5]), lambda x: x % 2 == 0))
+
+// Min/Max
+print("min:", set.min(set.from_array([3, 1, 4, 1, 5])))
+print("max:", set.max(set.from_array([3, 1, 4, 1, 5])))
+
+// Equality
+print("equals:", set.equals(set.from_array([1, 2, 3]), set.from_array([3, 2, 1])))
+print("not equals:", set.equals(set.from_array([1, 2]), set.from_array([1, 2, 3])))
+
+// Sorted
+print("sorted:", set.sorted(set.from_array([5, 3, 1, 4, 2])))
+
+print("\nALL SET TESTS COMPLETE")

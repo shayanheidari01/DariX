@@ -1,0 +1,72 @@
+import datetime
+import string
+
+print("=== DateTime Module Tests ===")
+
+// Current time
+var now = datetime.now()
+print("now:", now)
+print("now_ms:", datetime.now_ms())
+print("clock:", datetime.clock())
+
+// Format
+print("format:", datetime.format(now, "%Y-%m-%d %H:%M:%S"))
+print("date only:", datetime.format(now, "%Y-%m-%d"))
+print("time only:", datetime.format(now, "%H:%M:%S"))
+
+// Components
+print("year:", datetime.year(now))
+print("month:", datetime.month(now))
+print("day:", datetime.day(now))
+print("hour:", datetime.hour(now))
+print("minute:", datetime.minute(now))
+print("second:", datetime.second(now))
+print("weekday:", datetime.weekday(now))
+print("day_of_year:", datetime.day_of_year(now))
+
+// Date arithmetic
+var ts = datetime.make(2024, 1, 1)
+print("make 2024-01-01:", datetime.to_string(ts))
+print("add 7 days:", datetime.to_string(datetime.add_days(ts, 7)))
+print("add 24 hours:", datetime.to_string(datetime.add_hours(ts, 24)))
+
+// Diff
+var ts2 = datetime.make(2024, 1, 15, 12, 0, 0)
+print("diff seconds:", datetime.diff(ts2, ts))
+print("diff days:", datetime.diff_days(ts2, ts))
+
+// Conversion
+print("to_string:", datetime.to_string(now))
+print("to_date_string:", datetime.to_date_string(now))
+print("to_time_string:", datetime.to_time_string(now))
+print("to_iso:", datetime.to_iso(now))
+
+// Parse
+var parsed = datetime.parse("ignore", "2024-06-15 10:30:00")
+print("parsed:", datetime.to_string(parsed))
+
+// Comparisons
+print("is_before:", datetime.is_before(ts, ts2))
+print("is_after:", datetime.is_after(ts2, ts))
+print("is_same_day:", datetime.is_same_day(ts, ts))
+
+// Calendar
+print("is_leap 2024:", datetime.is_leap_year(2024))
+print("is_leap 2023:", datetime.is_leap_year(2023))
+print("days_in_month 2024-02:", datetime.days_in_month(2024, 2))
+print("days_in_month 2023-02:", datetime.days_in_month(2023, 2))
+
+// Timezone
+print("tz_offset:", datetime.timezone_offset(), "seconds")
+
+// Make with various args
+var t1 = datetime.make(2024, 6, 15)
+var t2 = datetime.make(2024, 6, 15, 14)
+var t3 = datetime.make(2024, 6, 15, 14, 30)
+var t4 = datetime.make(2024, 6, 15, 14, 30, 45)
+print("make 3 args:", datetime.to_string(t1))
+print("make 4 args:", datetime.to_string(t2))
+print("make 5 args:", datetime.to_string(t3))
+print("make 6 args:", datetime.to_string(t4))
+
+print("\nALL DATETIME TESTS COMPLETE")

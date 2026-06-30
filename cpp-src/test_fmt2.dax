@@ -1,0 +1,5 @@
+import io
+
+var r = io.format("{0}", 42)
+print("type:", type(r))
+print("value:", r)

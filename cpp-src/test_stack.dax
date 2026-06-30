@@ -1,0 +1,65 @@
+import stack
+
+print("=== Stack Module Tests ===")
+
+// Construction
+var s = stack.new()
+print("empty stack:", s)
+print("is_empty:", stack.is_empty(s))
+print("size:", stack.size(s))
+
+// Push/Pop
+var s1 = stack.push(s, "a")
+var s2 = stack.push(s1, "b")
+var s3 = stack.push(s2, "c")
+print("after push:", s3)
+print("size:", stack.size(s3))
+
+var ps1 = stack.pop(s3)
+print("top:", ps1[0])
+print("after pop:", ps1[1])
+
+var ps2 = stack.pop(ps1[1])
+print("top2:", ps2[0])
+print("after pop2:", ps2[1])
+
+// Peek
+print("peek:", stack.peek(s3))
+print("peek_bottom:", stack.peek_bottom(s3))
+print("peek empty:", stack.peek(stack.new()))
+
+// Contains
+print("contains b:", stack.contains(s3, "b"))
+print("contains x:", stack.contains(s3, "x"))
+
+// Push many
+var s4 = stack.push_many(s3, [1, 2, 3])
+print("push_many:", s4)
+
+// Pop n
+var pn = stack.pop_n(s4, 2)
+print("popped:", pn[0])
+print("remaining:", pn[1])
+
+// Peek n
+print("peek_n 2:", stack.peek_n(s3, 2))
+
+// Merge
+var s5 = stack.from_array([1, 2])
+var s6 = stack.from_array([3, 4])
+print("merge:", stack.merge(s5, s6))
+
+// Functional
+print("filter:", stack.filter(s3, lambda x: x != "b"))
+print("map_stack:", stack.map_stack(s3, lambda x: x + "!"))
+
+// Utility
+print("reverse:", stack.reverse(s3))
+print("unique:", stack.unique([1, 2, 2, 3, 3]))
+print("flatten:", stack.flatten([[1, 2], [3, 4], 5]))
+print("index_of:", stack.index_of(s3, "b"))
+print("min:", stack.min([3, 1, 4, 1, 5]))
+print("max:", stack.max([3, 1, 4, 1, 5]))
+print("clear:", stack.clear(s3))
+
+print("\nALL STACK TESTS COMPLETE")

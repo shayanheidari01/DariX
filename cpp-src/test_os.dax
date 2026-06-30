@@ -1,0 +1,44 @@
+import os
+import json
+
+print("=== OS Module Tests ===")
+
+// Platform info
+print("platform:", os.platform())
+print("arch:", os.arch())
+print("hostname:", os.hostname())
+print("pid:", os.getpid())
+print("user:", os.user())
+print("home:", os.home())
+
+// CPU
+print("cpu_count:", os.cpu_count())
+
+// Memory
+var mem = os.memory_info()
+print("memory total:", mem["total"])
+print("memory used:", mem["used"])
+print("memory usage:", mem["usage_percent"], "%")
+
+// Environment
+print("PATH exists:", os.getenv("PATH") != null)
+
+// System info
+var info = os.uname()
+print("uname:", info["system"], info["machine"])
+
+// Clock
+print("clock:", os.clock())
+
+// Exec
+var result = os.exec("echo hello world")
+print("exec exit:", result["exit_code"])
+print("exec stdout:", result["stdout"])
+
+// Sleep test (short)
+var t1 = os.clock()
+os.sleep(0.01)
+var t2 = os.clock()
+print("sleep elapsed ms:", t2 - t1)
+
+print("\nALL OS TESTS COMPLETE")

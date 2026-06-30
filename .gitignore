@@ -60,17 +60,5 @@ Desktop.ini
 .cache/
 *.tmp
 
-# Test files (ad-hoc scratch files)
-test_*.dax
-test_fmt.dax
-test_fmt2.dax
-test_new_import.dax
-test_native.dax
-test_net_small.dax
-test_net_http.dax
-
-# Node modules (if any tooling uses Node)
-node_modules/
-
 # Mimocode
 .mimocode/

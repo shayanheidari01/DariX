@@ -1,0 +1,36 @@
+import tree
+
+print("=== Tree Module Tests ===")
+
+var t = tree.node(1, [
+    tree.node(2, [tree.leaf(5), tree.leaf(6)]),
+    tree.leaf(3),
+    tree.node(4, [tree.leaf(7)])
+])
+
+print("value:", tree.value(t))
+print("children count:", len(tree.children(t)))
+print("is_leaf:", tree.is_leaf(t))
+print("size:", tree.size(t))
+print("depth:", tree.depth(t))
+print("height:", tree.height(t))
+
+print("find 5:", tree.value(tree.find(t, 5)))
+print("find 99:", tree.find(t, 99))
+print("depth_of 7:", tree.depth_of(t, 7))
+print("parent of 7:", tree.parent(t, 7))
+print("leaves:", tree.leaves(t))
+print("count_leaves:", tree.count_leaves(t))
+
+print("preorder:", tree.preorder(t))
+print("postorder:", tree.postorder(t))
+print("levelorder:", tree.levelorder(t))
+
+print("map:", tree.to_string(tree.map_tree(t, lambda x: x * 10)))
+print("clone equals:", tree.equals(t, tree.clone(t)))
+
+var updated = tree.set_value(t, 100)
+print("set_value:", tree.value(updated))
+print("add_child:", tree.to_string(tree.add_child(t, tree.leaf(8))))
+
+print("\nALL TREE TESTS COMPLETE")

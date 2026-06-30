@@ -1,0 +1,78 @@
+import linkedlist
+
+print("=== Linked List Module Tests ===")
+
+// Construction
+var ll = linkedlist.new()
+print("empty list:", ll)
+print("is_empty:", linkedlist.is_empty(ll))
+print("length:", linkedlist.length(ll))
+
+// from_array
+var ll1 = linkedlist.from_array([1, 2, 3, 4, 5])
+print("from_array:", ll1)
+
+// Head/Tail/Last/Init
+print("head:", linkedlist.head(ll1))
+print("tail:", linkedlist.tail(ll1))
+print("last:", linkedlist.last(ll1))
+print("init:", linkedlist.init(ll1))
+
+// Cons/Append
+print("cons:", linkedlist.cons(ll1, 0))
+print("append:", linkedlist.append(ll1, 6))
+
+// Concat
+print("concat:", linkedlist.concat([1, 2], [3, 4]))
+
+// Nth
+print("nth 0:", linkedlist.nth(ll1, 0))
+print("nth 2:", linkedlist.nth(ll1, 2))
+print("nth -1:", linkedlist.nth(ll1, -1))
+print("nth 99:", linkedlist.nth(ll1, 99))
+
+// Insert/Remove
+print("insert_at:", linkedlist.insert_at(ll1, 2, 99))
+print("remove_at:", linkedlist.remove_at(ll1, 2))
+print("remove_first:", linkedlist.remove_first(ll1, 3))
+print("remove_all:", linkedlist.remove_all([1, 2, 1, 3, 1], 1))
+
+// Contains/Index
+print("contains 3:", linkedlist.contains(ll1, 3))
+print("contains 99:", linkedlist.contains(ll1, 99))
+print("index_of 3:", linkedlist.index_of(ll1, 3))
+print("index_of 99:", linkedlist.index_of(ll1, 99))
+
+// Take/Drop/Slice
+print("take 3:", linkedlist.take(ll1, 3))
+print("drop 2:", linkedlist.drop(ll1, 2))
+print("slice 1-4:", linkedlist.slice(ll1, 1, 4))
+
+// Reverse/Sort/Unique
+print("reverse:", linkedlist.reverse(ll1))
+print("sort:", linkedlist.sort([5, 3, 1, 4, 2]))
+print("unique:", linkedlist.unique([1, 2, 2, 3, 3, 3]))
+
+// Zip/Flatten/Enumerate
+print("zip:", linkedlist.zip([1, 2, 3], ["a", "b", "c"]))
+print("flatten:", linkedlist.flatten([[1, 2], [3, 4], 5]))
+print("enumerate:", linkedlist.enumerate(ll1))
+
+// Min/Max
+print("min:", linkedlist.min(ll1))
+print("max:", linkedlist.max(ll1))
+
+// Functional
+print("fold sum:", linkedlist.fold(ll1, lambda acc, x: acc + x, 0))
+print("map_list:", linkedlist.map_list(ll1, lambda x: x * 2))
+print("filter_list:", linkedlist.filter_list(ll1, lambda x: x > 3))
+print("partition:", linkedlist.partition(ll1, lambda x: x % 2 == 0))
+print("group_by:", linkedlist.group_by(ll1, lambda x: x % 2))
+
+// Equals/To_string/Clear
+print("equals:", linkedlist.equals([1, 2, 3], [1, 2, 3]))
+print("not equals:", linkedlist.equals([1, 2, 3], [1, 2, 4]))
+print("to_string:", linkedlist.to_string(ll1))
+print("clear:", linkedlist.clear(ll1))
+
+print("\nALL LINKED LIST TESTS COMPLETE")

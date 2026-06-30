@@ -1,0 +1,25 @@
+import math
+import string
+
+print("math_sqrt(16):", math.sqrt(16))
+print("math_pow(2,10):", math.pow(2, 10))
+print("math_pi():", math.pi())
+print("math_random():", math.random())
+
+print("str_upper:", string.upper("hello"))
+print("str_lower:", string.lower("HELLO"))
+print("str_trim:", string.trim("  hello  "))
+print("str_split:", string.split("a,b,c", ","))
+print("str_join:", string.join(["x","y","z"], "-"))
+print("str_replace:", string.replace("hello world", "world", "DariX"))
+print("str_contains:", string.contains("hello", "ell"))
+print("str_starts:", string.starts("hello", "hel"))
+print("str_ends:", string.ends("hello", "llo"))
+print("str_index:", string.index("hello", "ell"))
+print("str_last_index:", string.last_index("hello", "l"))
+print("str_repeat:", string.repeat("ab", 3))
+print("str_reverse:", string.reverse("abc"))
+print("str_is_alpha:", string.is_alpha("hello"))
+print("str_is_digit:", string.is_digit("123"))
+print("str_is_space:", string.is_space("   "))
+print("ALL NATIVE MODULE TESTS COMPLETE")

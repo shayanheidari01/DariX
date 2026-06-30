@@ -1,0 +1,4 @@
+import net
+
+print("resolve localhost:", net.resolve("localhost"))
+print("\nNET TESTS COMPLETE")

@@ -1,0 +1,310 @@
+// DariX C++ Port - Complete Feature Test
+var passed = 0
+var failed = 0
+func assert_eq(name, actual, expected) {
+    if (actual == expected) {
+        print("  PASS:", name)
+        passed = passed + 1
+    } else {
+        print("  FAIL:", name, "- expected", expected, "got", actual)
+        failed = failed + 1
+    }
+}
+
+print("=== 1. Integers & Arithmetic ===")
+assert_eq("positive int", 42, 42)
+assert_eq("negative int", -5, -5)
+assert_eq("zero", 0, 0)
+assert_eq("addition", 10 + 3, 13)
+assert_eq("subtraction", 10 - 3, 7)
+assert_eq("multiplication", 10 * 3, 30)
+assert_eq("division", 10 / 3, 3)
+assert_eq("modulus", 10 % 3, 1)
+assert_eq("unary minus", -(-5), 5)
+assert_eq("precedence", 2 + 3 * 4, 14)
+assert_eq("parens", (2 + 3) * 4, 20)
+assert_eq("large int", 1000000, 1000000)
+
+print("\n=== 2. Floats ===")
+assert_eq("float literal", 3.14, 3.14)
+assert_eq("float arithmetic", 1.5 + 2.5, 4.0)
+assert_eq("float mul", 2.0 * 3.0, 6.0)
+assert_eq("float div", 10.0 / 4.0, 2.5)
+
+print("\n=== 3. Strings ===")
+assert_eq("string literal", "hello", "hello")
+assert_eq("empty string", "", "")
+assert_eq("string concat", "hello" + " " + "world", "hello world")
+assert_eq("string == same", "abc" == "abc", true)
+assert_eq("string != diff", "abc" == "def", false)
+assert_eq("string length", len("hello"), 5)
+assert_eq("string index", "hello"[0], "h")
+
+print("\n=== 4. Booleans ===")
+assert_eq("true", true, true)
+assert_eq("false", false, false)
+assert_eq("not true", !true, false)
+assert_eq("not false", !false, true)
+assert_eq("bool and", true && false, false)
+assert_eq("bool or", true || false, true)
+assert_eq("bool and kw", true and false, false)
+assert_eq("bool or kw", true or false, true)
+assert_eq("not kw", not true, false)
+
+print("\n=== 5. Null ===")
+assert_eq("null literal", null, null)
+assert_eq("null != int", null == 42, false)
+assert_eq("null is null", null is null, true)
+assert_eq("null is not int", null is 42, false)
+
+print("\n=== 6. Variables ===")
+var x = 100
+assert_eq("var init", x, 100)
+x = 200
+assert_eq("var reassign", x, 200)
+var a = 1
+var b = 2
+var c = a + b
+assert_eq("var expression", c, 3)
+
+print("\n=== 7. Conditionals ===")
+var result = ""
+if (true) { result = "yes" } else { result = "no" }
+assert_eq("if true", result, "yes")
+if (false) { result = "yes" } else { result = "no" }
+assert_eq("if false", result, "no")
+var grade = 85
+if (grade >= 90) { result = "A" }
+elif (grade >= 80) { result = "B" }
+elif (grade >= 70) { result = "C" }
+else { result = "F" }
+assert_eq("elif", result, "B")
+
+print("\n=== 8. While Loops ===")
+var wsum = 0
+var i = 1
+while (i <= 10) {
+    wsum = wsum + i
+    i = i + 1
+}
+assert_eq("while sum 1..10", wsum, 55)
+var counter = 0
+while (true) {
+    counter = counter + 1
+    if (counter == 5) { break }
+}
+assert_eq("while break", counter, 5)
+var evens = 0
+var j = 0
+while (j < 10) {
+    j = j + 1
+    if (j % 2 != 0) { continue }
+    evens = evens + 1
+}
+assert_eq("while continue", evens, 5)
+
+print("\n=== 9. For Loops ===")
+var for_sum = 0
+for (var k = 1; k <= 10; k = k + 1) {
+    for_sum = for_sum + k
+}
+assert_eq("for sum 1..10", for_sum, 55)
+var break_val = 0
+for (var n = 0; n < 100; n = n + 1) {
+    if (n == 7) { break_val = n; break }
+}
+assert_eq("for break", break_val, 7)
+var even_count = 0
+for (var m = 0; m < 10; m = m + 1) {
+    if (m % 2 != 0) { continue }
+    even_count = even_count + 1
+}
+assert_eq("for continue", even_count, 5)
+
+print("\n=== 10. Functions ===")
+func add(a, b) { return a + b }
+assert_eq("func call", add(3, 4), 7)
+func factorial(n) {
+    if (n <= 1) { return 1 }
+    return n * factorial(n - 1)
+}
+assert_eq("recursion", factorial(5), 120)
+func greet(name) { return "Hello, " + name + "!" }
+assert_eq("string in func", greet("DariX"), "Hello, DariX!")
+func do_nothing() { var x = 1 }
+assert_eq("void func", do_nothing(), null)
+
+print("\n=== 11. Lambdas ===")
+var double = lambda x: x * 2
+assert_eq("lambda call", double(5), 10)
+var adder = lambda a, b: a + b
+assert_eq("lambda multi-arg", adder(10, 20), 30)
+
+print("\n=== 12. Higher-Order Functions ===")
+func apply_twice(fn, val) { return fn(fn(val)) }
+assert_eq("higher-order", apply_twice(double, 3), 12)
+func make_adder(n) { return lambda x: x + n }
+var add5 = make_adder(5)
+assert_eq("closure", add5(10), 15)
+
+print("\n=== 13. Arrays ===")
+var arr = [1, 2, 3, 4, 5]
+assert_eq("array literal", arr[0], 1)
+assert_eq("array length", len(arr), 5)
+assert_eq("array last", arr[4], 5)
+arr[2] = 99
+assert_eq("array modify", arr[2], 99)
+var empty = []
+assert_eq("empty array", len(empty), 0)
+assert_eq("null index", arr[100], null)
+
+print("\n=== 14. Maps ===")
+var m = {"name": "DariX", "version": 1}
+assert_eq("map literal", m["name"], "DariX")
+assert_eq("map int val", m["version"], 1)
+m["author"] = "test"
+assert_eq("map add", m["author"], "test")
+m["version"] = 2
+assert_eq("map modify", m["version"], 2)
+var empty_map = {}
+assert_eq("empty map", len(empty_map), 0)
+
+print("\n=== 15. In Operator ===")
+assert_eq("in array", 3 in [1, 2, 3], true)
+assert_eq("not in array", 4 in [1, 2, 3], false)
+assert_eq("in string", "el" in "hello", true)
+assert_eq("in map", "name" in {"name": "test"}, true)
+
+print("\n=== 16. Is Operator ===")
+assert_eq("is same int", 42 is 42, true)
+assert_eq("is same ref", [1, 2] is [1, 2], false)
+
+print("\n=== 17. Exceptions ===")
+var caught = false
+try {
+    var z = 1 / 0
+} catch (ZeroDivisionError e) {
+    caught = true
+}
+assert_eq("catch exception", caught, true)
+var threw = false
+try {
+    throw ValueError("test error")
+} catch (ValueError e) {
+    threw = true
+}
+assert_eq("throw/catch", threw, true)
+var finally_ran = false
+try {
+    var x = 1
+} catch (RuntimeError e) {
+    var x = 2
+} finally {
+    finally_ran = true
+}
+assert_eq("finally block", finally_ran, true)
+
+print("\n=== 18. Assert ===")
+assert 1 + 1 == 2
+var assert_caught = false
+try {
+    assert 1 + 1 == 3, "math is broken"
+} catch (AssertionError e) {
+    assert_caught = true
+}
+assert_eq("assert failure", assert_caught, true)
+
+print("\n=== 19. Del ===")
+var del_target = 42
+del del_target
+var del_check = false
+try {
+    var test = del_target
+} catch (NameError e) {
+    del_check = true
+}
+assert_eq("del variable", del_check, true)
+var del_arr = [1, 2, 3, 4, 5]
+del del_arr[2]
+assert_eq("del array element", len(del_arr), 4)
+assert_eq("del array verify", del_arr[2], 4)
+
+print("\n=== 20. Pass ===")
+var pass_result = 0
+if (true) { pass; pass_result = 1 }
+assert_eq("pass statement", pass_result, 1)
+
+print("\n=== 21. Type Conversions ===")
+assert_eq("str(42)", str(42), "42")
+assert_eq("str(3.14)", str(3.14), "3.14")
+assert_eq("str(true)", str(true), "true")
+assert_eq("int(3.9)", int(3.9), 3)
+assert_eq("int(\"123\")", int("123"), 123)
+assert_eq("float(42)", float(42), 42.0)
+assert_eq("float(\"3.14\")", float("3.14"), 3.14)
+assert_eq("bool(1)", bool(1), true)
+assert_eq("bool(0)", bool(0), false)
+assert_eq("bool(\"\")", bool(""), false)
+assert_eq("type(42)", type(42), "INTEGER")
+assert_eq("type(3.14)", type(3.14), "FLOAT")
+assert_eq("type(\"hi\")", type("hi"), "STRING")
+
+print("\n=== 22. Built-ins ===")
+assert_eq("len string", len("hello"), 5)
+assert_eq("len array", len([1, 2, 3]), 3)
+assert_eq("len map", len({"a": 1}), 1)
+assert_eq("range 1 arg", len(range(5)), 5)
+assert_eq("range 2 arg", range(2, 5)[0], 2)
+assert_eq("range 3 arg", range(0, 10, 2)[1], 2)
+assert_eq("abs(-5)", abs(-5), 5)
+assert_eq("max(3,7)", max(3, 7), 7)
+assert_eq("min(3,7)", min(3, 7), 3)
+assert_eq("sum array", sum([1, 2, 3, 4, 5]), 15)
+assert_eq("sorted", sorted([3, 1, 2])[0], 1)
+assert_eq("reverse string", reverse("abc"), "cba")
+assert_eq("reverse array", reverse([1, 2, 3])[0], 3)
+assert_eq("contains string", contains("hello", "ell"), true)
+assert_eq("contains array", contains([1, 2, 3], 2), true)
+assert_eq("append", append([1, 2], 3), null)
+assert_eq("keys", len(keys({"a": 1, "b": 2})), 2)
+assert_eq("values", len(values({"a": 1})), 1)
+assert_eq("items", len(items({"a": 1, "b": 2})), 2)
+assert_eq("sort", sort([3, 1, 2])[0], 1)
+
+print("\n=== 23. Comparisons ===")
+assert_eq("1 < 2", 1 < 2, true)
+assert_eq("2 > 1", 2 > 1, true)
+assert_eq("1 <= 1", 1 <= 1, true)
+assert_eq("2 >= 2", 2 >= 2, true)
+assert_eq("1 == 1", 1 == 1, true)
+assert_eq("1 != 2", 1 != 2, true)
+assert_eq("\"a\" < \"b\"", "a" < "b", true)
+assert_eq("\"a\" == \"a\"", "a" == "a", true)
+assert_eq("true == true", true == true, true)
+assert_eq("false != true", false != true, true)
+
+print("\n=== 24. Logical Ops ===")
+assert_eq("true && true", true && true, true)
+assert_eq("true && false", true && false, false)
+assert_eq("false || true", false || true, true)
+assert_eq("false || false", false || false, false)
+assert_eq("and keyword", true and true, true)
+assert_eq("or keyword", false or true, true)
+var sc = false
+true || (sc = true)
+assert_eq("short-circuit or", sc, false)
+sc = false
+false && (sc = true)
+assert_eq("short-circuit and", sc, false)
+
+print("\n=== 25. Print ===")
+print("  (print works - verified by this test)")
+passed = passed + 1
+
+print("\n=============================")
+print("RESULTS:", passed, "passed,", failed, "failed")
+if (failed == 0) {
+    print("ALL TESTS PASSED!")
+} else {
+    print("SOME TESTS FAILED!")
+}

@@ -1,0 +1,55 @@
+import regex
+
+print("=== Regex Module Tests ===")
+
+// test
+print("test digit:", regex.test("\\d+", "abc123def"))
+print("test no match:", regex.test("^xyz$", "hello"))
+
+// match
+print("match:", regex.match("\\d+", "abc123def"))
+print("match none:", regex.match("^xyz$", "hello"))
+
+// matches (all)
+print("matches:", regex.matches("\\d+", "a1b2c3"))
+
+// groups
+print("groups:", regex.groups("(\\w+)@(\\w+)\\.com", "user@host.com"))
+print("groups none:", regex.groups("(\\d+)", "hello"))
+
+// count
+print("count:", regex.count("\\d+", "a1b2c3d4"))
+
+// replace
+print("replace:", regex.replace("\\d+", "abc123def", "X"))
+
+// replace_all
+print("replace_all:", regex.replace_all("\\d+", "abc123def", "X"))
+
+// split
+print("split:", regex.split(",\\s*", "a, b, c, d"))
+
+// find
+print("find:", regex.find("\\d+", "a12b345c6"))
+
+// escape
+print("escape:", regex.escape("hello.world*"))
+
+// is_valid
+print("valid regex:", regex.is_valid("[a-z]+"))
+print("bad regex:", regex.is_valid("[invalid"))
+
+// Complex patterns
+print("email test:", regex.test("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}", "test@example.com"))
+print("phone:", regex.match("\\d{3}-\\d{3}-\\d{4}", "Call 555-123-4567 now"))
+print("date:", regex.matches("\\d{4}-\\d{2}-\\d{2}", "Dates: 2024-01-15 and 2024-12-31"))
+
+// Named groups with map
+var named = regex.named_groups("(\\w+)=(\\d+)", "x=42 y=7")
+print("named:", named)
+
+// replace with function
+var result = regex.replace_with_fn("\\d+", "abc123def", lambda m: "[" + m + "]")
+print("replace_with_fn:", result)
+
+print("\nALL REGEX TESTS COMPLETE")

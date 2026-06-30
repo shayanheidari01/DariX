@@ -1,0 +1,68 @@
+import json
+
+print("=== JSON Module Tests ===")
+
+// Parse primitives
+print("parse string:", json.parse("\"hello\""))
+print("parse int:", json.parse("42"))
+print("parse float:", json.parse("3.14"))
+print("parse bool:", json.parse("true"))
+print("parse null:", json.parse("null"))
+
+// Parse arrays
+print("parse array:", json.parse("[1, 2, 3]"))
+print("parse nested:", json.parse("[1, [2, 3], 4]"))
+print("parse empty array:", json.parse("[]"))
+
+// Parse objects
+print("parse object:", json.parse("{\"name\": \"Alice\", \"age\": 30}"))
+print("parse nested:", json.parse("{\"a\": {\"b\": 1}}"))
+print("parse empty:", json.parse("{}"))
+
+// Parse complex
+var complex = json.parse("{\"name\": \"DariX\", \"version\": 1, \"features\": [\"fast\", \"dynamic\"], \"config\": {\"debug\": false, \"level\": 3}}")
+print("complex:", complex)
+
+// Stringify
+print("stringify int:", json.stringify(42))
+print("stringify string:", json.stringify("hello"))
+print("stringify bool:", json.stringify(true))
+print("stringify null:", json.stringify(null))
+print("stringify array:", json.stringify([1, 2, 3]))
+print("stringify object:", json.stringify({"a": 1, "b": 2}))
+
+// Stringify with indent
+print("indented:", json.stringify(complex, 2))
+
+// Roundtrip
+var data = {"users": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]}
+var jsonStr = json.stringify(data)
+print("json string:", jsonStr)
+var parsed = json.parse(jsonStr)
+print("roundtrip equal:", parsed == data)
+
+// Escape sequences
+print("parse escapes:", json.parse("\"line1\\nline2\""))
+print("parse tabs:", json.parse("\"col1\\tcol2\""))
+print("parse quotes:", json.parse("\"say \\\"hello\\\"\""))
+print("parse backslash:", json.parse("\"path\\\\to\\\\file\""))
+
+// is_valid
+print("is_valid true:", json.is_valid("{\"a\": 1}"))
+print("is_valid false:", json.is_valid("{invalid"))
+print("is_valid array:", json.is_valid("[1, 2, 3]"))
+print("is_valid bad:", json.is_valid("}"))
+
+// Negative numbers
+print("parse negative:", json.parse("-42"))
+print("parse neg float:", json.parse("-3.14"))
+print("parse scientific:", json.parse("1e10"))
+print("parse neg scientific:", json.parse("-1.5e-3"))
+
+// Deeply nested
+print("deep:", json.parse("{\"a\":{\"b\":{\"c\":[1,2,3]}}}"))
+
+// Edge cases
+print("parse whitespace:", json.parse("  {  \"x\"  :  1  }  "))
+
+print("\nALL JSON TESTS COMPLETE")

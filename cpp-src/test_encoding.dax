@@ -1,0 +1,46 @@
+import encoding
+
+print("=== Encoding Module Tests ===")
+
+// Base64
+print("b64 encode:", encoding.base64_encode("Hello, World!"))
+print("b64 decode:", encoding.base64_decode(encoding.base64_encode("Hello, World!")))
+
+// Base32
+print("b32 encode:", encoding.base32_encode("Hello"))
+print("b32 decode:", encoding.base32_decode(encoding.base32_encode("Hello")))
+
+// Hex
+print("hex encode:", encoding.hex_encode("hello"))
+print("hex encode upper:", encoding.hex_encode_upper("hello"))
+print("hex decode:", encoding.hex_decode("68656c6c6f"))
+
+// URL
+print("url encode:", encoding.url_encode("hello world!"))
+print("url decode:", encoding.url_decode("hello%20world%21"))
+
+// HTML
+print("html encode:", encoding.html_encode("<script>alert('xss')</script>"))
+print("html decode:", encoding.html_decode("&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"))
+
+// Binary
+print("binary encode:", encoding.binary_encode("Hi"))
+print("binary decode:", encoding.binary_decode(encoding.binary_encode("Hi")))
+
+// Octal
+print("octal encode:", encoding.octal_encode("Hi"))
+print("octal decode:", encoding.octal_decode(encoding.octal_encode("Hi")))
+
+// Caesar cipher
+print("caesar +3:", encoding.caesar_encode("abc", 3))
+print("caesar -3:", encoding.caesar_decode(encoding.caesar_encode("abc", 3), 3))
+
+// Rot13
+print("rot13:", encoding.rot13("Hello World"))
+print("rot13 double:", encoding.rot13(encoding.rot13("Hello World")))
+
+// XOR
+print("xor:", encoding.xor_encode("secret", "key"))
+print("xor double:", encoding.xor_encode(encoding.xor_encode("test", "k"), "k"))
+
+print("\nALL ENCODING TESTS COMPLETE")

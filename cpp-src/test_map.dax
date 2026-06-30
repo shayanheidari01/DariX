@@ -1,0 +1,65 @@
+import map
+
+print("=== Map Module Tests ===")
+
+var m = {"name": "Alice", "age": 30, "city": "Tehran"}
+print("keys:", map.keys(m))
+print("values:", map.values(m))
+print("items:", map.items(m))
+print("size:", map.size(m))
+print("is_empty:", map.is_empty(m))
+
+print("has_key name:", map.has_key(m, "name"))
+print("has_key email:", map.has_key(m, "email"))
+print("has_value Alice:", map.has_value(m, "Alice"))
+print("has_value Bob:", map.has_value(m, "Bob"))
+
+print("get name:", map.get(m, "name"))
+print("get missing:", map.get(m, "email"))
+print("get default:", map.get(m, "email", "N/A"))
+
+// put (mutates)
+map.put(m, "email", "alice@test.com")
+print("after put:", m)
+
+// remove (mutates)
+map.remove(m, "email")
+print("after remove:", m)
+
+// merge
+var a = {"x": 1, "y": 2}
+var b = {"y": 3, "z": 4}
+var merged = map.merge(a, b)
+print("merge:", merged)
+
+// Functional operations
+print("map_values:", map.map_values(m, lambda v: v))
+print("filter:", map.filter({"a": 1, "b": 2, "c": 3}, lambda k, v: v > 1))
+print("find_key:", map.find_key({"a": 1, "b": 5, "c": 3}, lambda k, v: v == 5))
+
+// from_pairs / to_pairs
+var pairs = [["x", 10], ["y", 20]]
+print("from_pairs:", map.from_pairs(pairs))
+print("to_pairs:", map.to_pairs(m))
+
+// invert
+var orig = {"a": "1", "b": "2"}
+print("invert:", map.invert(orig))
+
+// equals
+var m1 = {"a": 1, "b": 2}
+var m2 = {"a": 1, "b": 2}
+var m3 = {"a": 1, "b": 3}
+print("equals same:", map.equals(m1, m2))
+print("equals diff:", map.equals(m1, m3))
+
+// keys_array (sorted)
+print("keys_array:", map.keys_array({"z": 1, "a": 2, "m": 3}))
+
+// is_empty after clear
+var em = {"x": 1}
+map.clear(em)
+print("after clear:", em)
+print("is_empty after clear:", map.is_empty(em))
+
+print("\nALL MAP TESTS COMPLETE")

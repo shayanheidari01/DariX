@@ -1,0 +1,28 @@
+import net
+
+print("=== Network Module Tests ===")
+
+// DNS resolution
+print("resolve localhost:", net.resolve("localhost"))
+
+// HTTP GET
+var resp = net.http_get("http://httpbin.org/get")
+print("GET status:", resp["status"])
+print("GET body length:", len(resp["body"]))
+
+// HTTP POST
+var postResp = net.http_post("http://httpbin.org/post", "test data", "text/plain")
+print("POST status:", postResp["status"])
+print("POST body length:", len(postResp["body"]))
+
+// TCP (connect to httpbin)
+var fd = net.tcp_connect("httpbin.org", 80)
+print("tcp_connect:", fd != null)
+if (fd != null) {
+    net.tcp_send(fd, "GET /get HTTP/1.1\r\nHost: httpbin.org\r\nConnection: close\r\n\r\n")
+    var tcpResp = net.tcp_recv(fd, 4096)
+    print("tcp response length:", len(tcpResp))
+    net.tcp_close(fd)
+}
+
+print("\nALL NET TESTS COMPLETE")

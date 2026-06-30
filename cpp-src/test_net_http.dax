@@ -1,0 +1,13 @@
+import net
+
+print("=== HTTP Tests ===")
+
+var resp = net.http_get("http://httpbin.org/get")
+print("GET status:", resp["status"])
+print("GET body length:", len(resp["body"]))
+
+var postResp = net.http_post("http://httpbin.org/post", "test data", "text/plain")
+print("POST status:", postResp["status"])
+print("POST body length:", len(postResp["body"]))
+
+print("\nHTTP TESTS COMPLETE")

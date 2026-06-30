@@ -1,0 +1,69 @@
+import queue
+
+print("=== Queue Module Tests ===")
+
+// Construction
+var q = queue.new()
+print("empty queue:", q)
+print("is_empty:", queue.is_empty(q))
+print("size:", queue.size(q))
+
+// Enqueue/Dequeue
+var q1 = queue.enqueue(q, "a")
+var q2 = queue.enqueue(q1, "b")
+var q3 = queue.enqueue(q2, "c")
+print("after enqueue:", q3)
+print("size:", queue.size(q3))
+
+var dq1 = queue.dequeue(q3)
+print("front:", dq1[0])
+print("after dequeue:", dq1[1])
+
+var dq2 = queue.dequeue(dq1[1])
+print("front2:", dq2[0])
+print("after dequeue2:", dq2[1])
+
+// Peek
+print("peek:", queue.peek(q3))
+print("peek_back:", queue.peek_back(q3))
+print("peek empty:", queue.peek(queue.new()))
+
+// Contains
+print("contains b:", queue.contains(q3, "b"))
+print("contains x:", queue.contains(q3, "x"))
+
+// Enqueue front
+var q4 = queue.enqueue_front(q3, "z")
+print("enqueue_front:", q4)
+
+// Dequeue back
+var dq3 = queue.dequeue_back(q3)
+print("back:", dq3[0])
+print("after dequeue_back:", dq3[1])
+
+// Take/Drop
+print("take 2:", queue.take(q3, 2))
+print("drop 1:", queue.drop(q3, 1))
+
+// Merge
+var q6 = queue.from_array([1, 2])
+var q7 = queue.from_array([3, 4])
+print("merge:", queue.merge(q6, q7))
+
+// Functional
+print("filter:", queue.filter(q3, lambda x: x != "b"))
+print("map_queue:", queue.map_queue(q3, lambda x: x + "!"))
+
+// Rotate
+print("rotate:", queue.rotate(q3, 1))
+print("rotate neg:", queue.rotate(q3, -1))
+
+// Utility
+print("unique:", queue.unique([1, 2, 2, 3, 3]))
+print("flatten:", queue.flatten([[1, 2], [3, 4], 5]))
+print("reverse:", queue.reverse(q3))
+print("index_of:", queue.index_of(q3, "b"))
+print("slice:", queue.slice(q3, 0, 2))
+print("clear:", queue.clear(q3))
+
+print("\nALL QUEUE TESTS COMPLETE")

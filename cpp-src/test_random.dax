@@ -1,0 +1,47 @@
+import random
+
+print("=== Random Module Tests ===")
+
+// Seed for reproducibility
+random.seed(42)
+
+// Integer
+print("int():", random.int())
+print("int(10):", random.int(10))
+print("int_range(1,6):", random.int_range(1, 6))
+
+// Float
+print("float():", random.float())
+print("float_range(1.0, 10.0):", random.float_range(1.0, 10.0))
+
+// Choice from array
+var fruits = ["apple", "banana", "cherry", "date"]
+print("choice:", random.choice(fruits))
+
+// Choices (with replacement)
+print("choices 3:", random.choices(fruits, 3))
+
+// Sample (without replacement)
+print("sample 2:", random.sample(fruits, 2))
+
+// Shuffle
+print("shuffle:", random.shuffle([1, 2, 3, 4, 5]))
+
+// Coin flip
+print("coin:", random.coin())
+
+// Weighted choice
+var options = ["a", "b", "c"]
+var weights = [1, 10, 1]
+print("weighted:", random.weighted_choice(options, weights))
+
+// Batch generation
+print("booleans:", random.booleans(5))
+print("booleans p=0.8:", random.booleans(5, 0.8))
+print("ints:", random.ints(5, 1, 10))
+
+// Distributions
+print("normal(0,1):", random.normal(0, 1))
+print("exponential(1):", random.exponential(1))
+
+print("\nALL RANDOM TESTS COMPLETE")

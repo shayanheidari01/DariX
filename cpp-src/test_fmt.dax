@@ -1,0 +1,5 @@
+import io
+
+print(io.format("{0} hello", "test"))
+print(io.format("Hello, {0}! You are {1}.", "Alice", 30))
+print(io.format("{} + {} = {}", 3, 4, 7))

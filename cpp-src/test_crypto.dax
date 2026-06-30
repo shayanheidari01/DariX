@@ -1,0 +1,34 @@
+import crypto
+
+print("=== Crypto Module Tests ===")
+
+// Hashing
+print("md5:", crypto.md5("hello"))
+print("sha256:", crypto.sha256("hello"))
+print("sha512:", crypto.sha512("hello"))
+print("hmac:", crypto.hmac_sha256("key", "message"))
+print("hash:", crypto.hash("test"))
+
+// Base64
+print("b64 encode:", crypto.base64_encode("Hello, World!"))
+print("b64 decode:", crypto.base64_decode(crypto.base64_encode("Hello, World!")))
+
+// Hex
+print("hex encode:", crypto.hex_encode("hello"))
+print("hex decode:", crypto.hex_decode("68656c6c6f"))
+
+// Random
+print("random hex:", crypto.random_hex(16))
+print("uuid:", crypto.uuid())
+
+// CRC32
+print("crc32:", crypto.crc32("hello"))
+
+// URL encoding
+print("url encode:", crypto.url_encode("hello world!"))
+print("url decode:", crypto.url_decode("hello%20world%21"))
+
+// PBKDF2
+print("pbkdf2:", crypto.pbkdf2("password", "salt", 1000))
+
+print("\nALL CRYPTO TESTS COMPLETE")

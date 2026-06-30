@@ -1,0 +1,57 @@
+import fs
+import json
+
+print("=== Filesystem Module Tests ===")
+
+// Current directory
+print("cwd:", fs.cwd())
+print("temp:", fs.temp_dir())
+
+// Path operations
+print("join:", fs.join("a", "b", "c.txt"))
+print("parent:", fs.parent("/usr/local/bin/darix"))
+print("filename:", fs.filename("/usr/local/bin/darix"))
+print("extension:", fs.extension("main.cpp"))
+print("stem:", fs.stem("main.cpp"))
+print("absolute:", fs.absolute("./test.txt"))
+
+// File operations
+var testFile = "test_io.txt"
+fs.write(testFile, "Hello, DariX!")
+print("exists:", fs.exists(testFile))
+print("is_file:", fs.is_file(testFile))
+print("read:", fs.read(testFile))
+print("size:", fs.size(testFile))
+
+fs.append(testFile, "\nSecond line")
+print("after append:", fs.read(testFile))
+
+// Directory operations
+var testDir = "test_dir"
+fs.mkdir(testDir)
+print("is_dir:", fs.is_dir(testDir))
+print("list_dir:", fs.list_dir("."))
+
+// Write a file in the directory
+fs.write(testDir + "/nested.txt", "nested content")
+print("list_dir full:", fs.list_dir_full(testDir))
+
+// Copy
+fs.copy(testFile, testFile + ".bak")
+print("copy exists:", fs.exists(testFile + ".bak"))
+
+// Rename
+fs.rename(testFile + ".bak", testFile + ".renamed")
+print("rename exists:", fs.exists(testFile + ".renamed"))
+
+// Cleanup
+fs.remove(testFile)
+fs.remove(testFile + ".renamed")
+fs.rmdir(testDir)
+print("after cleanup:", fs.exists(testFile))
+print("after rmdir:", fs.exists(testDir))
+
+// Env
+print("PATH exists:", fs.env("PATH") != null)
+
+print("\nALL FS TESTS COMPLETE")

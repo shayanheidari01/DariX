@@ -1,0 +1,33 @@
+import io
+import json
+
+print("=== IO Module Tests ===")
+
+// Format
+print("format:", io.format("Hello, {0}! You are {1}.", "Alice", 30))
+print("sprint:", io.sprint("{0} + {1} = {2}", 3, 4, 7))
+
+// Progress bar
+print("progress:", io.progress(3, 10))
+print("progress 50%:", io.progress(50, 100, 30))
+print("progress done:", io.progress(100, 100))
+
+// Table
+var headers = ["Name", "Age", "City"]
+var rows = [["Alice", 30, "Tehran"], ["Bob", 25, "Isfahan"], ["Carol", 35, "Shiraz"]]
+print("table:")
+print(io.table(headers, rows))
+
+// JSON table
+var data = [
+    {"name": "Alice", "age": 30, "city": "Tehran"},
+    {"name": "Bob", "age": 25, "city": "Isfahan"}
+]
+print("json_table:")
+print(io.json_table(data))
+
+// print_no_newline (just verify it doesn't crash)
+io.print_no_newline("no newline test")
+print("")
+
+print("\nALL IO TESTS COMPLETE")
