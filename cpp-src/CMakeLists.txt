@@ -18,6 +18,7 @@ endif()
 
 if(WIN32)
     target_compile_definitions(darix PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(darix PRIVATE ws2_32)
 endif()
 
 # Optional: HTTP client (libcurl)
