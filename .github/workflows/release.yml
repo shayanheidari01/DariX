@@ -3,62 +3,99 @@ name: Release DariX
 on:
   push:
     tags:
-      - 'v*.*.*'  # Only trigger on version tags like v1.0.0
-  workflow_dispatch:  # Allow manual triggering
+      - 'v*.*.*'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: linux
-            arch: amd64
-          - os: windows
-            arch: amd64
-          - os: darwin
-            arch: amd64
-          - os: android
-            arch: arm64
+          - os: ubuntu-latest
+            name: linux-amd64
+            artifact: darix-linux-amd64
+            ext: ""
+          - os: windows-latest
+            name: windows-amd64
+            artifact: darix-windows-amd64
+            ext: ".exe"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
 
       - name: Get version
         id: version
+        shell: bash
         run: |
-          # Extract version from git tag, fallback to version.go
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/v}
           else
-            VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/' || echo "dev")
+            VERSION="1.0.0"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build binary
-        run: |
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o darix-${{ matrix.os }}-${{ matrix.arch }} main.go
-          if [ "${{ matrix.os }}" = "windows" ]; then
-            mv darix-${{ matrix.os }}-${{ matrix.arch }} darix-${{ matrix.os }}-${{ matrix.arch }}.exe
-          fi
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S cpp-src -B cpp-src/build -DCMAKE_BUILD_TYPE=Release
 
-      - name: Upload artifact
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S cpp-src -B cpp-src/build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build cpp-src/build --config Release
+
+      - name: Run tests (Linux)
+        if: runner.os == 'Linux'
+        run: ./cpp-src/build/darix run cpp-src/test_all_features.dax
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: .\cpp-src\build\darix.exe run cpp-src\test_all_features.dax
+
+      - name: Package binary (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd cpp-src/build
+          tar czf darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz darix
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "cpp-src\build\darix.exe" -DestinationPath "cpp-src\build\darix-${{ steps.version.outputs.version }}-windows-amd64.zip"
+
+      - name: Upload artifact (Linux)
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
-          name: darix-${{ matrix.os }}-${{ matrix.arch }}
-          path: darix-${{ matrix.os }}-${{ matrix.arch }}*
+          name: darix-${{ steps.version.outputs.version }}-linux-amd64
+          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: darix-${{ steps.version.outputs.version }}-windows-amd64
+          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-windows-amd64.zip
+
+      - name: Upload raw binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: cpp-src/build/darix${{ matrix.ext }}
 
   release:
+    name: Create Release
     needs: build
     runs-on: ubuntu-latest
 
@@ -68,12 +105,12 @@ jobs:
 
       - name: Get version
         id: version
+        shell: bash
         run: |
-          # Extract version from git tag, fallback to version.go
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/v}
           else
-            VERSION=$(grep 'const Version' internal/version/version.go | sed 's/.*= "\(.*\)"/\1/' || echo "dev")
+            VERSION="1.0.0"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -82,37 +119,48 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Create release
-        uses: softprops/action-gh-release@v1
+      - name: List artifacts
+        run: find ./artifacts -type f | head -20
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: DariX ${{ steps.version.outputs.version }}
+          name: DariX v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
           body: |
-            ## DariX ${{ steps.version.outputs.version }} Release
+            ## DariX v${{ steps.version.outputs.version }}
 
-            Automatic release built from commit ${{ github.sha }}.
+            ### Downloads
 
-            ### Installation
+            | Platform | File | Notes |
+            |----------|------|-------|
+            | Linux x86_64 | `darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz` | Extract and run `./darix` |
+            | Windows x86_64 | `darix-${{ steps.version.outputs.version }}-windows-amd64.zip` | Extract and run `darix.exe` |
 
-            #### Prerequisites
-            * Go (1.21+ recommended)
-
-            #### Download and Install
-            1. Download the appropriate binary for your platform from the assets below.
-            2. Make the binary executable (on Linux/macOS): `chmod +x darix-<os>-<arch>`
-            3. (Optional) Move to a directory in your PATH: `sudo cp darix-<os>-<arch> /usr/local/bin/darix`
-
-            #### Platforms
-            - Linux AMD64
-            - Windows AMD64 (.exe)
-            - macOS AMD64
-            - Android ARM64 (for Termux)
-
-            ### Usage
+            ### Quick Start
             ```bash
-            darix run your_script.dax
-            darix repl  # Interactive mode
+            # Linux
+            tar xzf darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+            chmod +x darix
+            ./darix run your_script.dax
+
+            # Windows
+            # Extract the .zip and run darix.exe
             ```
 
-            For more information, see the [README](https://github.com/shayanheidari01/darix/blob/main/README.md).
-          files: ./artifacts/**/*
+            ### What's New
+            See the [CHANGELOG](CHANGELOG.md) for details.
+
+            ### Documentation
+            - [Language Reference](docs/language.md)
+            - [Module Reference](docs/modules.md)
+            - [Build Guide](docs/building.md)
+            - [Tutorial](docs/tutorial.md)
+          files: |
+            artifacts/darix-${{ steps.version.outputs.version }}-linux-amd64/*
+            artifacts/darix-${{ steps.version.outputs.version }}-windows-amd64/*
+            artifacts/darix-linux-amd64/*
+            artifacts/darix-windows-amd64/*

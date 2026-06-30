@@ -7,77 +7,83 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  test:
-    name: Test
+  build:
+    name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: [1.21, 1.22]
+        include:
+          - os: ubuntu-latest
+            name: Linux
+          - os: windows-latest
+            name: Windows
 
     steps:
-    - name: Check out code
+    - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
 
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-${{ matrix.go-version }}-
+    - name: Configure (Linux)
+      if: runner.os == 'Linux'
+      run: cmake -S cpp-src -B cpp-src/build -DCMAKE_BUILD_TYPE=Release
 
-    - name: Download dependencies
-      run: go mod download
+    - name: Configure (Windows)
+      if: runner.os == 'Windows'
+      run: cmake -S cpp-src -B cpp-src/build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 
     - name: Build
-      run: go build -v .
+      run: cmake --build cpp-src/build --config Release
 
-    - name: Run Go tests
-      run: go test -v ./...
+    - name: Run language feature tests (Linux)
+      if: runner.os == 'Linux'
+      run: ./cpp-src/build/darix run cpp-src/test_all_features.dax
 
-    - name: Run DariX test suite
+    - name: Run language feature tests (Windows)
+      if: runner.os == 'Windows'
+      run: .\cpp-src\build\darix.exe run cpp-src\test_all_features.dax
+
+    - name: Run comprehensive tests (Linux)
+      if: runner.os == 'Linux'
       run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./darix.exe run tests/test_runner.dax
-        else
-          ./darix run tests/test_runner.dax
-        fi
-      shell: bash
+        ./cpp-src/build/darix run cpp-src/test_native.dax
+        ./cpp-src/build/darix run cpp-src/test_array.dax
+        ./cpp-src/build/darix run cpp-src/test_string.dax
+        ./cpp-src/build/darix run cpp-src/test_map.dax
+        ./cpp-src/build/darix run cpp-src/test_set.dax
+        ./cpp-src/build/darix run cpp-src/test_json.dax
+        ./cpp-src/build/darix run cpp-src/test_fs.dax
+        ./cpp-src/build/darix run cpp-src/test_crypto.dax
+        ./cpp-src/build/darix run cpp-src/test_datetime.dax
+        ./cpp-src/build/darix run cpp-src/test_regex.dax
+        ./cpp-src/build/darix run cpp-src/test_encoding.dax
 
-    - name: Run comprehensive tests
+    - name: Run comprehensive tests (Windows)
+      if: runner.os == 'Windows'
       run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./darix.exe run examples/comprehensive_test.dax
-        else
-          ./darix run examples/comprehensive_test.dax
-        fi
-      shell: bash
+        .\cpp-src\build\darix.exe run cpp-src\test_native.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_array.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_string.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_map.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_set.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_json.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_fs.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_crypto.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_datetime.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_regex.dax
+        .\cpp-src\build\darix.exe run cpp-src\test_encoding.dax
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check out code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
+    - name: Upload binary (Linux)
+      if: runner.os == 'Linux'
+      uses: actions/upload-artifact@v4
       with:
-        go-version: 1.22
+        name: darix-linux-amd64
+        path: cpp-src/build/darix
 
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v3
+    - name: Upload binary (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
       with:
-        version: latest
-        args: --timeout=5m
-
-  # Remove build-release job since it conflicts with release.yml
-  # The release.yml workflow handles building and releasing
+        name: darix-windows-amd64
+        path: cpp-src/build/darix.exe

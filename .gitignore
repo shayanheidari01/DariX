@@ -1,9 +1,10 @@
-# Go build artifacts
+# Build artifacts
 bin/
 build/
 dist/
 out/
 tmp/
+cpp-src/build/
 
 # Binaries
 *.exe
@@ -14,9 +15,16 @@ tmp/
 *.test
 *.out
 
-# Go workspace files
-go.work
-go.work.sum
+# C++ build artifacts
+*.o
+*.obj
+*.a
+*.lib
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.cmake
+compile_commands.json
 
 # Coverage and profiling
 *.cover
@@ -52,5 +60,17 @@ Desktop.ini
 .cache/
 *.tmp
 
+# Test files (ad-hoc scratch files)
+test_*.dax
+test_fmt.dax
+test_fmt2.dax
+test_new_import.dax
+test_native.dax
+test_net_small.dax
+test_net_http.dax
+
 # Node modules (if any tooling uses Node)
 node_modules/
+
+# Mimocode
+.mimocode/

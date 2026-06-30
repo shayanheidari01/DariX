@@ -1,740 +1,354 @@
-# DariX Programming Language
-
-![DariX Logo](DariX.png)
-
-**DariX** is a modern, powerful, and comprehensive programming language inspired by Python and Dart, implemented in Go. It features C-like syntax, VM + Compiler execution system with Interpreter fallback, and advanced capabilities including OOP, Exception Handling, Native Libraries, and HTTP Server.
-
-## 🌟 Key Features
-
-### 🚀 **Advanced Architecture:**
-- **Bytecode VM + Compiler:** Fast execution with compiler optimizations
-- **Interpreter Fallback:** Complete support for all features
-- **Auto Backend Selection:** Automatic selection of best backend
-- **Performance Optimizations:** Object pooling, constant folding, peephole optimizer
-
-### 💻 **Complete Programming Language:**
-- **Dynamic Typing:** No need for explicit type definitions
-- **Object-Oriented Programming:** Classes, objects, methods, constructors
-- **First-Class Functions:** Functions as first-class values
-- **Exception Handling:** Complete try-catch-finally system
-- **Module System:** Import files and native modules
-
-### 🌐 **Network and Web Capabilities:**
-- **HTTP Server:** Complete HTTP server with routing and middleware
-- **HTTP Client:** HTTP client with support for all methods
-- **WebSocket:** Real-time communications
-- **Socket Programming:** Low-level network programming
-- **SMTP:** Email sending
-- **DNS:** DNS operations and validation
-
-### 📚 **Native Libraries:**
-- **13 Native Libraries** with 100+ functions
-- **Math, String, JSON, HTTP, Crypto, Time, OS, Regex**
-- **Path, Random, URL, Base, Collections**
-- **High Performance** with Go native implementation
-
-### 🛠 **Development Tools:**
-- **Enhanced REPL:** Advanced interactive environment with history and completion
-- **VS Code Extension:** Complete IDE support
-- **CLI Tools:** Various command-line tools
-- **Comprehensive Testing:** Complete test suite
-- **CI/CD Pipeline:** Automated build pipeline
-
-## 🚀 Quick Start
-
-### 📋 Prerequisites
-- **Go 1.21+** (recommended)
-- **Git** for cloning the repository
-
-### 📥 Installation
-
-#### Method 1: Automatic Installation (Recommended)
-
-**Termux Android:**
-```bash
-wget -qO- https://raw.githubusercontent.com/shayanheidari01/DariX/refs/heads/main/install.sh | bash
-```
-
-**Linux:**
-```bash
-wget -qO- https://raw.githubusercontent.com/shayanheidari01/DariX/refs/heads/main/install.sh | sudo bash
-```
-
-#### Method 2: Build from Source
-```bash
-# Clone repository
-git clone https://github.com/shayanheidari01/DariX.git
-cd DariX
-
-# Build
-go build -o darix main.go
-
-# Test installation
-./darix run test.dax
-```
-
-#### Method 3: Using Makefile
-```bash
-# Build for current platform
-make build
-
-# Build for all platforms
-make build-all
-
-# Run tests
-make test
-
-# Start REPL
-make repl
-```
-
-#### Method 4: System Installation
-```bash
-# Linux/macOS
-sudo cp darix /usr/local/bin/
-
-# Windows
-copy darix.exe C:\Windows\System32\
-```
-
-### 🎯 Running DariX Code
-
-**Official file extension:** `.dax`
-
-#### CLI Commands:
-```bash
-# Run file (auto backend)
-darix run script.dax
-
-# Explicit backend selection
-darix run --backend=vm script.dax      # Faster
-darix run --backend=interp script.dax  # More complete
-darix run --backend=auto script.dax    # Smart
-
-# Run from stdin
-echo 'print("Hello!")' | darix run -
-
-# Disassemble bytecode
-darix disasm script.dax
-
-# Interactive environment (REPL)
-darix repl
-
-# Direct code execution
-darix eval 'print(2 + 3 * 4)'
-
-# Show version
-darix version
-
-# Help
-darix help
-```
-
-#### Security and Sandboxing:
-```bash
-# Restrict access
-darix run --allow=go:math,go:string script.dax
-darix run --deny=go:os,go:fs script.dax
-darix run --fs-root=/safe/path script.dax
-darix run --fs-ro script.dax
-darix run --cpu=1000000 script.dax
-```
-
-## 📖 DariX Language Guide
-
-### 👋 Hello World!
-
-```dax
-print("Hello World!");
-print("Hello, DariX World!");
-```
-
-### 🔢 Variables
-
-Variables are declared using the `var` keyword. To change a variable's value, use the `=` operator.
-
-```dax
-// Variable declarations
-var x = 5;
-var name = "DariX";
-var isActive = true;
-var price = 99.99;
-var items = [1, 2, 3];
-var person = {"name": "Ali", "age": 25};
-
-// Changing variable values
-x = 10;
-name = "New Name";
-isActive = false;
-```
-
-### 🎯 Data Types
-
-DariX supports the following data types:
-
-#### Primitive Types:
-- **Integer:** `42`, `-10`, `0`
-- **Float:** `3.14`, `-0.001`, `2.5`
-- **Boolean:** `true`, `false`
-- **String:** `"Hello"`, `"DariX"`, `'Single quotes'`
-- **Null:** `null` - represents absence of value
-
-#### Composite Types:
-- **Array:** `[1, 2, 3]`, `["a", "b", "c"]`, `[1, "two", true]`
-- **Map/Object:** `{"key": "value", "age": 30}`
-
-```dax
-// Examples of different data types
-var number = 42;                    // Integer
-var pi = 3.14159;                   // Float
-var isReady = true;                 // Boolean
-var message = "Test message";       // String
-var empty = null;                   // Null
-var colors = ["red", "blue", "green"]; // Array
-var student = {                     // Map
-    "name": "Mohammad",
-    "grade": 18.5,
-    "passed": true
-};
-```
-
-### ⚡ عملگرها (Operators)
-
-#### عملگرهای ریاضی:
-```dax
-var a = 10, b = 3;
-print(a + b);    // جمع: 13
-print(a - b);    // تفریق: 7
-print(a * b);    // ضرب: 30
-print(a / b);    // تقسیم: 3.333...
-print(a % b);    // باقیمانده: 1
-```
-
-#### عملگرهای مقایسه:
-```dax
-var x = 5, y = 10;
-print(x < y);    // کمتر از: true
-print(x > y);    // بزرگتر از: false
-print(x <= 5);   // کمتر یا مساوی: true
-print(x >= 5);   // بزرگتر یا مساوی: true
-print(x == 5);   // مساوی: true
-print(x != y);   // نامساوی: true
-```
-
-#### عملگرهای منطقی:
-```dax
-var isTrue = true, isFalse = false;
-print(!isTrue);           // نقیض (NOT): false
-print(isTrue && isFalse); // و منطقی (AND): false
-print(isTrue || isFalse); // یا منطقی (OR): true
-```
-
-#### عملگرهای رشته:
-```dax
-var first = "سلام";
-var second = " دنیا";
-print(first + second);    // الحاق رشته: "سلام دنیا"
-```
-
-#### عملگرهای یکی (Unary):
-```dax
-var num = 5;
-print(-num);     // منفی کردن: -5
-print(!true);    // نقیض منطقی: false
-}
-// حلقه با شرط پیچیده
-var sum = 0;
-var num = 1;
-while (sum < 100) {
-    sum = sum + num;
-    num = num + 1;
-}
-print("مجموع:", sum);
-```
-
-#### For Loops (C-style):
-```dax
-// Simple loop
-for (var j = 0; j < 5; j = j + 1) {
-    print("Iteration:", j);
-}
-
-// Loop with different steps
-for (var k = 10; k > 0; k = k - 2) {
-    print("Countdown:", k);
-}
-
-// Infinite loop (use break to exit)
-var counter = 0;
-for (;;) {
-    if (counter >= 3) {
-        break; // Exit loop
-    }
-    print("Infinite?", counter);
-    counter = counter + 1;
-}
-```
-
-#### Break and Continue:
-```dax
-// Using break and continue
-for (var i = 0; i < 10; i = i + 1) {
-    if (i == 3) {
-        continue; // Skip number 3
-    }
-    if (i == 7) {
-        break; // Stop loop before reaching 10
-    }
-    print(i);
-}
-// Output: 0, 1, 2, 4, 5, 6
-
-// More complex example
-var numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-for (var i = 0; i < len(numbers); i = i + 1) {
-    if (numbers[i] % 2 == 0) {
-        continue; // Skip even numbers
-    }
-    if (numbers[i] > 7) {
-        break; // Stop at numbers greater than 7
-    }
-    print("Odd number:", numbers[i]);
-}
-// آرایه‌ها در داریکس از نوع ordered collection هستند
-
-Arrays are ordered collections of values.
-
-```dax
-var numbers = [1, 2, 3, 4];
-var mixed = [1, "hello", true];
-
-print("First number:", numbers[0]); // Access by index
-print("Length:", len(numbers)); // Built-in len function
-
-numbers = append(numbers, 5); // Append element(s)
-print("After append:", numbers);
-
-var reversed_nums = reverse(numbers); // Built-in reverse function
-print("Reversed:", reversed_nums);
-
-var range_array = range(5); // Creates [0, 1, 2, 3, 4]
-print("Range 0-4:", range_array);
-
-var range_array2 = range(2, 8); // Creates [2, 3, 4, 5, 6, 7]
-print("Range 2-7:", range_array2);
-
-var range_array3 = range(0, 10, 2); // Creates [0, 2, 4, 6, 8]
-print("Range 0-9 step 2:", range_array3);
-```
-
-#### Maps
-
-Maps are collections of key-value pairs.
-
-```dax
-var person = {"name": "Alice", "age": 30};
-print("Name:", person["name"]); // Access by key
-
-person["city"] = "Wonderland"; // Add/update key-value pair
-print("Person map:", person);
-
-print("Map size:", len(person)); // Built-in len function
-```
-
-### 📦 ماژول‌ها (Modules)
-
-می‌توانید کد خود را در چندین فایل تقسیم کنید و با استفاده از دستور `import` آن‌ها را وارد کنید.
-
-#### مثال ماژول ریاضی:
-**math.dax**
-```dax
-// توابع ریاضی
-func square(x) {
-    return x * x;
-}
-
-func cube(x) {
-    return x * x * x;
-}
-
-func power(base, exp) {
-    var result = 1;
-    for (var i = 0; i < exp; i = i + 1) {
-        result = result * base;
-    }
-    return result;
-}
-
-// ثابت‌های ریاضی
-PI = 3.14159;
-E = 2.71828;
-```
-
-**main.dax**
-```dax
-import "math.dax";
-
-print("عدد پی:", PI);
-print("مربع 4:", square(4));
-print("مکعب 3:", cube(3));
-print("2 به توان 8:", power(2, 8));
-```
-
-#### مثال ماژول کاربردی:
-**utils.dax**
-```dax
-// توابع کمکی
-func isEven(n) {
-    return n % 2 == 0;
-}
-
-func isOdd(n) {
-    return n % 2 != 0;
-}
-
-func max(a, b) {
-    if (a > b) {
-        return a;
-    }
-    return b;
-}
-
-func min(a, b) {
-    if (a < b) {
-        return a;
-    }
-    return b;
-}
-```
-
-**app.dax**
-```dax
-import "utils.dax";
-
-var numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
-for (var i = 0; i < len(numbers); i = i + 1) {
-    var num = numbers[i];
-    if (isEven(num)) {
-        print(num, "زوج است");
-    } else {
-        print(num, "فرد است");
-    }
-}
-
-print("بیشترین:", max(15, 23));
-print("کمترین:", min(15, 23));
-```
-
-## Native Modules & FFI (Go interop)
-
-You can bring Go-powered functionality into DariX in two complementary ways:
-
-- Native modules via `import "go:<name>"`
-- Reflective FFI for direct calls into registered Go functions
-
-Today two native modules ship by default:
-
-- `go:fs` — simple filesystem utilities
-- `go:ffi` — reflective Foreign Function Interface entry point
-
-Notes:
-
-- Importing `go:<name>` currently injects the module's functions directly into the current environment (no namespace object yet). Use prefix-friendly names (e.g., `fs_read`) to avoid collisions.
-- All builtins return either a normal value or an `Error` object on failure; handle errors as needed.
-
-### Using go:fs (filesystem)
-
-```dax
-import "go:fs";
-
-fs_write("hello.txt", "salam dari DariX!");
-print("exists?", fs_exists("hello.txt"));   // true
-print("content:", fs_read("hello.txt"));    // salam dari DariX!
-```
-
-APIs:
-
-- `fs_read(path: string) -> string | Error`
-- `fs_write(path: string, data: string) -> true | Error`
-- `fs_exists(path: string) -> bool | Error`
-
-### Using go:ffi (reflective FFI)
-
-Register your Go function(s) during program init, then call them with `ffi_call` from DariX.
-
-Register in Go (host):
-
-```go
-// cmd/register_math.go
-package main
-
-import (
-    "darix/internal/native"
-    "math"
-)
-
-func init() {
-    native.RegisterFFI("math.Sqrt", math.Sqrt)
-}
-```
-
-Call from DariX:
-
-```dax
-import "go:ffi";
-
-var x = 9;
-var r = ffi_call("math.Sqrt", x);
-print("sqrt:", r); // 3
-```
-
-Type mapping (Go ⇄ DariX):
-
-- Integers ⇄ `INTEGER` (auto-convert among int/uint widths where possible)
-- Floats ⇄ `FLOAT`
-- Booleans ⇄ `BOOLEAN`
-- Strings ⇄ `STRING`
-- Null → nil for interface/pointer/slice/map/func targets; nil/pointers → `null`
-- Multi-return `(T, error)`: if `error != nil` → `Error`, else return `T`
-
-Limitations (current): arrays/maps are not yet auto-mapped to Go slices/maps; extend `ffi.go` if needed.
-
-### Building your own native module (fast path)
-
-For hot paths, native modules avoid reflection. Implement `args ...object.Object -> object.Object` builtins and register them under a module name.
-
-```go
-// internal/native/mycalc.go
-package native
-
-import "darix/object"
-
-func init() {
-    Register("mycalc", map[string]*object.Builtin{
-        "calc_add": {Fn: calcAdd},
-    })
-}
-
-func calcAdd(args ...object.Object) object.Object {
-    if len(args) != 2 {
-        return object.NewError("calc_add: expected 2 args")
-    }
-    a, ok1 := args[0].(*object.Integer)
-    b, ok2 := args[1].(*object.Integer)
-    if !ok1 || !ok2 {
-        return object.NewError("calc_add: both args must be integers")
-    }
-    return object.NewInteger(a.Value + b.Value)
-}
-```
-
-Use it in DariX:
-
-```dax
-import "go:mycalc";
-
-print(calc_add(2, 40)); // 42
-```
-
-### Namespacing & safety
-
-- Namespacing: for now, functions are injected directly. You can prefix names (e.g., `fs_*`, `calc_*`). A future update may keep functions under a module object (e.g., `fs.read`).
-- Safety: `go:fs` and `go:ffi` expose host capabilities. For sandboxed environments, add validation layers or restrict which modules are registered.
-
-## ⚠️ **مدیریت خطا (Exception Handling)**
-
-داریکس دارای سیستم کامل مدیریت خطا با الهام از Python است:
-
-```dax
-// خطاهای خودکار
-try {
-    var result = 10 / 0; // خطای تقسیم بر صفر
-} catch (ZeroDivisionError e) {
-    print("خطای تقسیم بر صفر:", e);
-} finally {
-    print("این همیشه اجرا می‌شود");
-}
-
-// ایجاد و پرتاب خطاهای سفارشی
-func validateAge(age) {
-    if (age < 0) {
-        throw ValueError("سن نمی‌تواند منفی باشد");
-    }
-    return age;
-}
-
-try {
-    var validAge = validateAge(-5);
-} catch (ValueError e) {
-    print("سن نامعتبر:", e);
-}
-```
-
-## 🏗️ **برنامه‌نویسی شیءگرا (OOP)**
-
-```dax
-class Person {
-    func __init__(self, name, age) {
-        self.name = name;
-        self.age = age;
-    }
-    
-    func greet(self) {
-        print("سلام، من " + self.name + " هستم.");
-    }
-}
-
-var person = Person("علی", 25);
-person.greet();
-```
-
-## 📚 **Built-in Functions**
-
-DariX comes with a comprehensive set of built-in functions:
-
-### Core Functions:
-- `print(...args)` - Print to output
-- `len(obj)` - Length of string, array, or map
-- `type(obj)` - Object type
-- `input([prompt])` - Get user input
-
-### Type Conversion:
-- `str(obj)`, `int(obj)`, `float(obj)`, `bool(obj)`
-
-### Math Functions:
-- `abs(x)`, `max(...args)`, `min(...args)`, `sum(array)`, `pow(base, exp)`
-
-### Array Functions:
-- `range([start,] stop[, step])`, `reverse(obj)`, `sort(array)`, `append(array, ...values)`
-
-### Map Functions:
-- `keys(map)`, `values(map)`, `items(map)`
-
-### String Functions:
-- `upper(str)`, `lower(str)`, `trim(str)`
-
-### Utility Functions:
-- `now()`, `timestamp()`, `exit([code])`
-
-## 🏗️ **Build and Testing**
-
-### Build Project:
-```bash
-# Build for current platform
-go build -o darix .
-
-# Or use Makefile
-make build
-make build-all  # All platforms
-```
-
-### Running Tests:
-```bash
-# Run test suite
-./darix run tests/test_runner.dax
-
-# Comprehensive tests
-make test
-make test-comprehensive
-```
-
-### Project Structure:
-```
-DariX/
-├── ast/           # Abstract Syntax Tree
-├── compiler/      # Bytecode compiler
-├── vm/            # Virtual machine
-├── interpreter/   # Tree-walking interpreter
-├── lexer/         # Lexical analyzer
-├── parser/        # Parser implementation
-├── object/        # Object system
-├── repl/          # Interactive environment
-├── internal/      # Internal modules
-├── examples/      # Example programs
-├── tests/         # Test suite
-└── main.go        # Main entry point
-```
-
-## 🤝 **Join the DariX Community - مشارکت در پروژه**
-
-We warmly welcome contributions from developers around the world! DariX is an open-source project that thrives on community collaboration.
-
-### 🌟 **How to Contribute:**
-
-#### 🐛 **Report Issues & Bugs:**
-- Found a bug? [Create an issue](https://github.com/shayanheidari01/DariX/issues/new)
-- Suggest new features or improvements
-- Report documentation errors or unclear sections
-
-#### 💻 **Code Contributions:**
-- Fork the repository
-- Create a feature branch: `git checkout -b feature/amazing-feature`
-- Make your changes and add tests
-- Commit with clear messages: `git commit -m 'Add amazing feature'`
-- Push to your branch: `git push origin feature/amazing-feature`
-- Open a Pull Request with detailed description
-
-#### 📚 **Documentation & Examples:**
-- Improve existing documentation
-- Add new examples and tutorials
-- Translate documentation to other languages
-- Create video tutorials or blog posts
-
-#### 🧪 **Testing & Quality Assurance:**
-- Write unit tests for new features
-- Test on different platforms (Windows, Linux, macOS, Android)
-- Performance testing and benchmarking
-- Security testing and vulnerability reports
-
-### 🎯 **Areas We Need Help With:**
-
-- **Native Libraries:** Expand the collection of Go-native modules
-- **Performance Optimization:** VM improvements and compiler optimizations
-- **IDE Support:** Enhance VS Code extension, create plugins for other editors
-- **Mobile Development:** Android app development with DariX
-- **Web Framework:** Build a comprehensive web framework
-- **Package Manager:** Create a package management system
-- **Standard Library:** Expand built-in functions and utilities
-
-### 🏆 **Recognition:**
-Contributors will be:
-- Listed in our [CONTRIBUTORS.md](CONTRIBUTORS.md) file
-- Mentioned in release notes
-- Given credit in documentation
-- Invited to join our core team for significant contributions
-
-### 💬 **Get in Touch:**
-- **GitHub Discussions:** Share ideas and ask questions
-- **Issues:** Technical problems and feature requests
-- **Email:** Contact maintainers for private discussions
-
-### 🌍 **International Contributors Welcome:**
-We especially encourage contributions from:
-- **Persian/Farsi speakers** for localization
-- **Developers from Iran** and Persian-speaking countries
-- **Students and educators** for educational content
-- **Open source enthusiasts** from all backgrounds
-
-**Let's build the future of programming languages together! 🚀**
+<p align="center">
+  <img src="docs/DariX.png" alt="DariX Logo" width="200"/>
+</p>
+
+<h1 align="center">DariX</h1>
+
+<p align="center">
+  <strong>A high-performance, dynamically-typed programming language</strong>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#features">Features</a> •
+  <a href="#examples">Examples</a> •
+  <a href="#modules">Modules</a> •
+  <a href="#building">Building</a> •
+  <a href="docs/language.md">Language Reference</a> •
+  <a href="docs/modules.md">Module Reference</a> •
+  <a href="docs/architecture.md">Architecture</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/C%2B%2B-17-green" alt="C++17">
+  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License">
+  <img src="https://img.shields.io/badge/tests-593-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/modules-21-orange" alt="Modules">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platforms">
+</p>
 
 ---
 
-**Your contribution to the DariX project is highly valuable! We especially invite Iranian and Persian-speaking developers to participate in the development of this programming language.**
+## Quick Start
 
-## 📄 **License**
+### Install
 
-This project is licensed under the Apache License.
+```bash
+git clone https://github.com/shayanheidari01/DariX.git
+cd DariX/cpp-src
+cmake -S . -B build
+cmake --build build
+```
 
-## 🎯 **Feature Summary**
+### Run
 
-✅ **Complete Language:** Dynamic typing, OOP, Exception handling  
-✅ **High Performance:** VM + Compiler with advanced optimizations  
-✅ **Network & Web:** HTTP Server, WebSocket, SMTP, DNS  
-✅ **13 Native Libraries:** Math, JSON, Crypto, and more  
-✅ **Development Tools:** Enhanced REPL, VS Code Extension  
-✅ **Comprehensive Testing:** 40+ automated tests with 100% success  
-✅ **CI/CD:** Automated pipeline and multi-platform support  
-✅ **Complete Documentation:** English and Persian guides  
+```bash
+# Run a script
+./build/darix run script.dax
 
-**DariX is ready for use in real-world projects! 🚀**
+# Interactive REPL
+./build/darix repl
+
+# Evaluate expression
+./build/darix eval "print(1 + 2)"
+```
+
+### Hello World
+
+Create `hello.dax`:
+```dax
+print("Hello, World!")
+```
+
+```bash
+darix run hello.dax
+# Output: Hello, World!
+```
+
+---
+
+## Features
+
+### Core Language
+| Feature | Status |
+|---------|--------|
+| Dynamic typing | ✅ |
+| Variables & assignment | ✅ |
+| Arithmetic operators | ✅ |
+| String operations | ✅ |
+| Conditionals (if/elif/else) | ✅ |
+| While loops | ✅ |
+| For loops | ✅ |
+| Functions & recursion | ✅ |
+| Lambda expressions | ✅ |
+| Closures | ✅ |
+| Classes & OOP | ✅ |
+| Decorators | ✅ |
+| Exception handling | ✅ |
+| Import system | ✅ |
+| Comments (// and /\* \*/) | ✅ |
+| Short-circuit evaluation | ✅ |
+
+### Standard Library (21 Modules)
+
+| Module | Functions | Description |
+|--------|-----------|-------------|
+| `math` | 27 | Mathematical functions |
+| `string` | 37 | String manipulation |
+| `array` | 28 | Array operations |
+| `map` | 22 | Map operations |
+| `set` | 27 | Set operations |
+| `queue` | 25 | FIFO queue |
+| `stack` | 28 | LIFO stack |
+| `linkedlist` | 38 | Linked list operations |
+| `tree` | 22 | Tree operations |
+| `graph` | 22 | Graph operations |
+| `json` | 3 | JSON parsing/serialization |
+| `fs` | 22 | File system operations |
+| `net` | 9 | Networking (TCP/UDP/HTTP) |
+| `crypto` | 14 | Cryptographic functions |
+| `datetime` | 30 | Date and time operations |
+| `random` | 16 | Random number generation |
+| `regex` | 13 | Regular expressions |
+| `io` | 20 | Input/output operations |
+| `os` | 15 | Operating system interface |
+| `encoding` | 17 | Encoding/decoding |
+| **Total** | **407** | |
+
+### Architecture
+- **Lexer**: Single-pass scanner with position tracking
+- **Parser**: Pratt (top-down operator precedence) parser
+- **Compiler**: AST-to-bytecode with constant folding and peephole optimization
+- **VM**: Stack-based virtual machine with 30 opcodes
+- **Interpreter**: Tree-walking fallback for full feature support
+- **JIT**: Hot-path optimization (threshold: 100 executions)
+
+---
+
+## Examples
+
+### Variables & Arithmetic
+```dax
+var x = 42
+var y = 3.14
+var name = "DariX"
+print(x + y)      // 45.14
+print(x * 2)      // 84
+```
+
+### Control Flow
+```dax
+var score = 85
+if (score >= 90) {
+    print("A")
+} elif (score >= 80) {
+    print("B")
+} else {
+    print("C")
+}
+
+for (var i = 0; i < 5; i = i + 1) {
+    print(i)
+}
+```
+
+### Functions & Lambdas
+```dax
+func factorial(n) {
+    if (n <= 1) return 1
+    return n * factorial(n - 1)
+}
+print(factorial(5))  // 120
+
+var double = lambda x: x * 2
+print(double(21))    // 42
+```
+
+### Classes
+```dax
+class Animal {
+    var name = ""
+    func __init__(name) { self.name = name }
+    func speak() { return self.name + " speaks" }
+}
+
+var cat = Animal("Cat")
+print(cat.speak())  // Cat speaks
+```
+
+### Data Structures
+```dax
+// Arrays
+var arr = [1, 2, 3, 4, 5]
+print(arr.filter(lambda x: x > 3))  // [4, 5]
+print(arr.map(lambda x: x * 10))    // [10, 20, 30, 40, 50]
+
+// Maps
+var m = {"name": "DariX", "version": 1}
+print(m["name"])  // DariX
+
+// Sets
+import set
+var s = set.from_array([1, 2, 2, 3])
+print(s)  // [1, 2, 3]
+```
+
+### Exception Handling
+```dax
+try {
+    var result = 10 / 0
+} catch (ZeroDivisionError e) {
+    print("Error:", e)
+} finally {
+    print("cleanup")
+}
+```
+
+### File I/O
+```dax
+import fs
+import json
+
+// Write JSON
+var data = {"name": "Alice", "scores": [95, 87, 92]}
+fs.write("data.json", json.stringify(data, 2))
+
+// Read and parse
+var content = fs.read("data.json")
+var parsed = json.parse(content)
+print(parsed["name"])  // Alice
+```
+
+### HTTP Requests
+```dax
+import net
+import json
+
+var resp = net.http_get("http://httpbin.org/get")
+print(resp["status"])  // 200
+var data = json.parse(resp["body"])
+```
+
+### Math & Science
+```dax
+import math
+
+print(math.sqrt(16))        // 4
+print(math.pi())           // 3.14159
+print(math.sin(math.pi()/2))  // 1
+print(math.factorial(5))   // 120 (via recursive function)
+```
+
+---
+
+## Project Structure
+
+```
+DariX/
+├── cpp-src/                 # C++ implementation
+│   ├── CMakeLists.txt
+│   ├── include/darix/       # Headers
+│   │   ├── ast.hpp
+│   │   ├── code.hpp
+│   │   ├── compiler.hpp
+│   │   ├── interpreter.hpp
+│   │   ├── lexer.hpp
+│   │   ├── object.hpp
+│   │   ├── parser.hpp
+│   │   ├── token.hpp
+│   │   ├── vm.hpp
+│   │   └── native/          # Native module headers
+│   └── src/                 # Source files
+│       ├── main.cpp
+│       └── native/          # Native module implementations
+├── examples/                # Example scripts
+├── tests/                   # Test scripts
+├── benchmarks/              # Performance benchmarks
+├── docs/                    # Documentation
+│   ├── language.md
+│   ├── modules.md
+│   ├── building.md
+│   ├── cli.md
+│   ├── architecture.md
+│   └── tutorial.md
+└── README.md
+```
+
+---
+
+## Documentation
+
+- [Language Reference](docs/language.md) — Complete language syntax
+- [Module Reference](docs/modules.md) — All 21 native modules
+- [Build Guide](docs/building.md) — Build instructions for all platforms
+- [CLI Reference](docs/cli.md) — Command-line interface
+- [Architecture](docs/architecture.md) — Internal design and structure
+- [Tutorial](docs/tutorial.md) — Step-by-step learning guide
+
+---
+
+## Building
+
+### Requirements
+- C++17 compiler (GCC 7+, Clang 5+, MSVC 2017+)
+- CMake 3.16+
+
+### Build
+```bash
+cd cpp-src
+cmake -S . -B build
+cmake --build build
+```
+
+### Platforms
+| Platform | Compiler | Status |
+|----------|----------|--------|
+| Windows (MSYS2) | MinGW GCC | ✅ |
+| Windows (VS) | MSVC 2017+ | ✅ |
+| Linux | GCC/Clang | ✅ |
+| macOS | Clang | ✅ |
+
+See [Build Guide](docs/building.md) for detailed instructions.
+
+---
+
+## Test Results
+
+```
+Language features: 133 passed
+Math module:        27 passed
+String module:      37 passed
+Array module:       28 passed
+Map module:         22 passed
+Set module:         27 passed
+Queue module:       25 passed
+Stack module:       28 passed
+Linked List:        38 passed
+Tree module:        22 passed
+Graph module:       22 passed
+JSON module:        28 passed
+Filesystem:         22 passed
+Network:             9 passed
+Crypto module:      14 passed
+DateTime:           30 passed
+Random:             16 passed
+Regex:              13 passed
+IO module:          20 passed
+OS module:          15 passed
+Encoding:           17 passed
+─────────────────────────────
+TOTAL:             593 passed
+```
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  Built with ❤️ by <a href="https://github.com/shayanheidari01">shayanheidari01</a>
+</p>
