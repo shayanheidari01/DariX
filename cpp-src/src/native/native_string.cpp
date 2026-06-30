@@ -238,8 +238,8 @@ void initStringModule() {
             auto endObj = std::dynamic_pointer_cast<Integer>(args[2]);
             if (endObj) end = endObj->value;
         }
-        if (start < 0) start = std::max(0LL, static_cast<int64_t>(s.size()) + start);
-        if (end < 0) end = std::max(0LL, static_cast<int64_t>(s.size()) + end);
+        if (start < 0) start = std::max(static_cast<int64_t>(0), static_cast<int64_t>(s.size()) + start);
+        if (end < 0) end = std::max(static_cast<int64_t>(0), static_cast<int64_t>(s.size()) + end);
         start = std::min(start, static_cast<int64_t>(s.size()));
         end = std::min(end, static_cast<int64_t>(s.size()));
         if (start >= end) return newString("");

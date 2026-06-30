@@ -299,7 +299,7 @@ void initArrayModule() {
         if (!arr) return makeError("take: first argument must be array");
         auto n = std::dynamic_pointer_cast<Integer>(args[1]);
         if (!n) return makeError("take: second argument must be integer");
-        size_t count = std::min(static_cast<size_t>(std::max(0LL, n->value)), arr->elements.size());
+        size_t count = std::min(static_cast<size_t>(std::max(static_cast<int64_t>(0), n->value)), arr->elements.size());
         return newArray(std::vector<ObjectPtr>(arr->elements.begin(), arr->elements.begin() + count));
     };
 
@@ -309,7 +309,7 @@ void initArrayModule() {
         if (!arr) return makeError("drop: first argument must be array");
         auto n = std::dynamic_pointer_cast<Integer>(args[1]);
         if (!n) return makeError("drop: second argument must be integer");
-        size_t skip = std::min(static_cast<size_t>(std::max(0LL, n->value)), arr->elements.size());
+        size_t skip = std::min(static_cast<size_t>(std::max(static_cast<int64_t>(0), n->value)), arr->elements.size());
         return newArray(std::vector<ObjectPtr>(arr->elements.begin() + skip, arr->elements.end()));
     };
 

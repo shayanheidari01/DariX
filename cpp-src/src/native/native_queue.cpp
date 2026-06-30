@@ -141,7 +141,7 @@ void initQueueModule() {
         if (!arr) return makeError("take: first argument must be queue (array)");
         auto n = std::dynamic_pointer_cast<Integer>(args[1]);
         if (!n) return makeError("take: second argument must be integer");
-        size_t count = std::min(static_cast<size_t>(std::max(0LL, n->value)), arr->elements.size());
+        size_t count = std::min(static_cast<size_t>(std::max(static_cast<int64_t>(0), n->value)), arr->elements.size());
         return newArray(std::vector<ObjectPtr>(arr->elements.begin(), arr->elements.begin() + count));
     };
 
@@ -152,7 +152,7 @@ void initQueueModule() {
         if (!arr) return makeError("drop: first argument must be queue (array)");
         auto n = std::dynamic_pointer_cast<Integer>(args[1]);
         if (!n) return makeError("drop: second argument must be integer");
-        size_t skip = std::min(static_cast<size_t>(std::max(0LL, n->value)), arr->elements.size());
+        size_t skip = std::min(static_cast<size_t>(std::max(static_cast<int64_t>(0), n->value)), arr->elements.size());
         return newArray(std::vector<ObjectPtr>(arr->elements.begin() + skip, arr->elements.end()));
     };
 
@@ -258,8 +258,8 @@ void initQueueModule() {
             auto endObj = std::dynamic_pointer_cast<Integer>(args[2]);
             if (endObj) end = endObj->value;
         }
-        if (start < 0) start = std::max(0LL, static_cast<int64_t>(arr->elements.size()) + start);
-        if (end < 0) end = std::max(0LL, static_cast<int64_t>(arr->elements.size()) + end);
+        if (start < 0) start = std::max(static_cast<int64_t>(0), static_cast<int64_t>(arr->elements.size()) + start);
+        if (end < 0) end = std::max(static_cast<int64_t>(0), static_cast<int64_t>(arr->elements.size()) + end);
         start = std::min(start, static_cast<int64_t>(arr->elements.size()));
         end = std::min(end, static_cast<int64_t>(arr->elements.size()));
         if (start >= end) return newArray({});

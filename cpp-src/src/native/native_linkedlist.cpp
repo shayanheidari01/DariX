@@ -135,7 +135,7 @@ void initLinkedListModule() {
         if (!idx) return makeError("insert_at: second argument must be integer");
         int64_t i = idx->value;
         if (i < 0) i = static_cast<int64_t>(arr->elements.size()) + i;
-        i = std::max(0LL, std::min(i, static_cast<int64_t>(arr->elements.size())));
+        i = std::max(static_cast<int64_t>(0), std::min(i, static_cast<int64_t>(arr->elements.size())));
         std::vector<ObjectPtr> result = arr->elements;
         result.insert(result.begin() + i, args[2]);
         return newArray(result);
@@ -248,7 +248,7 @@ void initLinkedListModule() {
         if (!arr) return makeError("take: first argument must be linked list (array)");
         auto n = std::dynamic_pointer_cast<Integer>(args[1]);
         if (!n) return makeError("take: second argument must be integer");
-        size_t count = std::min(static_cast<size_t>(std::max(0LL, n->value)), arr->elements.size());
+        size_t count = std::min(static_cast<size_t>(std::max(static_cast<int64_t>(0), n->value)), arr->elements.size());
         return newArray(std::vector<ObjectPtr>(arr->elements.begin(), arr->elements.begin() + count));
     };
 
@@ -259,7 +259,7 @@ void initLinkedListModule() {
         if (!arr) return makeError("drop: first argument must be linked list (array)");
         auto n = std::dynamic_pointer_cast<Integer>(args[1]);
         if (!n) return makeError("drop: second argument must be integer");
-        size_t skip = std::min(static_cast<size_t>(std::max(0LL, n->value)), arr->elements.size());
+        size_t skip = std::min(static_cast<size_t>(std::max(static_cast<int64_t>(0), n->value)), arr->elements.size());
         return newArray(std::vector<ObjectPtr>(arr->elements.begin() + skip, arr->elements.end()));
     };
 
@@ -276,8 +276,8 @@ void initLinkedListModule() {
             auto endObj = std::dynamic_pointer_cast<Integer>(args[2]);
             if (endObj) end = endObj->value;
         }
-        if (start < 0) start = std::max(0LL, static_cast<int64_t>(arr->elements.size()) + start);
-        if (end < 0) end = std::max(0LL, static_cast<int64_t>(arr->elements.size()) + end);
+        if (start < 0) start = std::max(static_cast<int64_t>(0), static_cast<int64_t>(arr->elements.size()) + start);
+        if (end < 0) end = std::max(static_cast<int64_t>(0), static_cast<int64_t>(arr->elements.size()) + end);
         start = std::min(start, static_cast<int64_t>(arr->elements.size()));
         end = std::min(end, static_cast<int64_t>(arr->elements.size()));
         if (start >= end) return newArray({});
