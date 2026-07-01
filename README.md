@@ -22,7 +22,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-1.0.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/C%2B%2B-17-green" alt="C++17">
-  <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License">
   <img src="https://img.shields.io/badge/tests-593-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/modules-21-orange" alt="Modules">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platforms">
@@ -345,7 +345,7 @@ TOTAL:             593 passed
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ---
 

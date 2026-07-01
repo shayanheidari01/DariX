@@ -340,4 +340,4 @@ The VM executes compiled bytecode. When a feature isn't supported by the VM, the
 
 ## License
 
-MIT
+Apache License 2.0
