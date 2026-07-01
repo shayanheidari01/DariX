@@ -354,7 +354,7 @@ ObjectPtr newHash(std::unordered_map<HashKey, HashPair, HashKeyHash> pairs) {
 ObjectPtr newError(const std::string& format, ...) {
     char buf[1024];
     va_list args;
-    va_start(args, format);
+    va_start(args, &format);
     std::vsnprintf(buf, sizeof(buf), format.c_str(), args);
     va_end(args);
     auto obj = std::make_shared<Error>();

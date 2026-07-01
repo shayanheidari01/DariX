@@ -12,7 +12,7 @@ add_executable(darix ${SOURCES})
 target_include_directories(darix PRIVATE include)
 
 # Platform-specific settings
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT APPLE AND NOT ANDROID)
     target_link_libraries(darix PRIVATE pthread)
 endif()
 
