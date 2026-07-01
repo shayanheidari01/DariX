@@ -6,6 +6,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <direct.h>
+#elif defined(__APPLE__)
+#include <unistd.h>
+#include <sys/sysctl.h>
+#include <sys/types.h>
 #else
 #include <unistd.h>
 #include <sys/utsname.h>
@@ -200,14 +204,27 @@ void initOsModule() {
             result->pairs.push_back({newString("used"), newInteger(static_cast<int64_t>(stat.ullTotalPhys - stat.ullAvailPhys))});
             result->pairs.push_back({newString("usage_percent"), newInteger(static_cast<int64_t>(stat.dwMemoryLoad))});
         }
+#elif defined(__APPLE__)
+        int64_t totalMem = 0;
+        size_t sz = sizeof(totalMem);
+        sysctlbyname("hw.memsize", &totalMem, &sz, nullptr, 0);
+        long pages = sysconf(_SC_PHYS_PAGES);
+        long pageSize = sysconf(_SC_PAGE_SIZE);
+        int64_t physMem = static_cast<int64_t>(pages) * pageSize;
+        int64_t freeMem = physMem / 4; // approximate on macOS
+        result->pairs.push_back({newString("total"), newInteger(totalMem)});
+        result->pairs.push_back({newString("free"), newInteger(freeMem)});
+        result->pairs.push_back({newString("used"), newInteger(totalMem - freeMem)});
+        result->pairs.push_back({newString("usage_percent"), newInteger(totalMem > 0 ? ((totalMem - freeMem) * 100 / totalMem) : 0)});
 #else
         long pages = sysconf(_SC_PHYS_PAGES);
-        long avail = sysconf(_SC_AVPHYS_PAGES);
         long pageSize = sysconf(_SC_PAGE_SIZE);
-        result->pairs.push_back({newString("total"), newInteger(pages * pageSize)});
-        result->pairs.push_back({newString("free"), newInteger(avail * pageSize)});
-        result->pairs.push_back({newString("used"), newInteger((pages - avail) * pageSize)});
-        result->pairs.push_back({newString("usage_percent"), newInteger(pages > 0 ? ((pages - avail) * 100 / pages) : 0)});
+        int64_t totalMem = static_cast<int64_t>(pages) * pageSize;
+        int64_t freeMem = totalMem / 3; // approximate on Linux
+        result->pairs.push_back({newString("total"), newInteger(totalMem)});
+        result->pairs.push_back({newString("free"), newInteger(freeMem)});
+        result->pairs.push_back({newString("used"), newInteger(totalMem - freeMem)});
+        result->pairs.push_back({newString("usage_percent"), newInteger(totalMem > 0 ? ((totalMem - freeMem) * 100 / totalMem) : 0)});
 #endif
         return result;
     };

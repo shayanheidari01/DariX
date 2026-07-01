@@ -91,6 +91,7 @@ const std::vector<std::string>& Parser::errors() const { return errors_; }
 
 std::shared_ptr<Program> Parser::parseProgram() {
     auto program = std::make_shared<Program>();
+    program->tag = NodeType::PROGRAM;
     while (curToken_.type != TokenType::EOF_TOKEN) {
         if (auto stmt = parseStatement()) {
             program->statements.push_back(stmt);
@@ -168,6 +169,7 @@ ExpressionPtr Parser::parseExpression(int precedence) {
 
 ExpressionPtr Parser::parseIdentifier() {
     auto node = std::make_shared<Identifier>();
+    node->tag = NodeType::IDENTIFIER;
     node->token = curToken_;
     node->value = curToken_.literal;
     return node;
@@ -175,6 +177,7 @@ ExpressionPtr Parser::parseIdentifier() {
 
 ExpressionPtr Parser::parseIntegerLiteral() {
     auto node = std::make_shared<IntegerLiteral>();
+    node->tag = NodeType::INTEGER_LITERAL;
     node->token = curToken_;
     auto [ptr, ec] = std::from_chars(curToken_.literal.data(), curToken_.literal.data() + curToken_.literal.size(), node->value);
     if (ec != std::errc()) {
@@ -235,6 +238,7 @@ ExpressionPtr Parser::parseGroupedExpression() {
 
 ExpressionPtr Parser::parseIfExpression() {
     auto expr = std::make_shared<IfExpression>();
+    expr->tag = NodeType::IF_EXPRESSION;
     expr->token = curToken_;
 
     if (!expectPeek(TokenType::LPAREN)) return nullptr;
@@ -389,6 +393,7 @@ ExpressionPtr Parser::parseYieldExpression() {
 
 ExpressionPtr Parser::parseInfixExpression(ExpressionPtr left) {
     auto expr = std::make_shared<InfixExpression>();
+    expr->tag = NodeType::INFIX_EXPRESSION;
     expr->token = curToken_;
     expr->op = curToken_.literal;
     expr->left = left;
@@ -401,6 +406,7 @@ ExpressionPtr Parser::parseInfixExpression(ExpressionPtr left) {
 
 ExpressionPtr Parser::parseCallExpression(ExpressionPtr fn) {
     auto exp = std::make_shared<CallExpression>();
+    exp->tag = NodeType::CALL_EXPRESSION;
     exp->token = curToken_;
     exp->function = fn;
     nextToken();
@@ -468,6 +474,7 @@ ExpressionPtr Parser::parseIsExpression(ExpressionPtr left) {
 
 StatementPtr Parser::parseLetStatement() {
     auto stmt = std::make_shared<LetStatement>();
+    stmt->tag = NodeType::LET_STATEMENT;
     stmt->token = curToken_;
 
     if (!expectPeek(TokenType::IDENT)) return nullptr;
@@ -507,6 +514,7 @@ StatementPtr Parser::parseClassDeclaration() {
 
 StatementPtr Parser::parseReturnStatement() {
     auto stmt = std::make_shared<ReturnStatement>();
+    stmt->tag = NodeType::RETURN_STATEMENT;
     stmt->token = curToken_;
 
     if (peekTokenIs(TokenType::SEMICOLON) || peekTokenIs(TokenType::RBRACE) || peekTokenIs(TokenType::EOF_TOKEN)) {
@@ -524,6 +532,7 @@ StatementPtr Parser::parseReturnStatement() {
 
 StatementPtr Parser::parseExpressionStatement() {
     auto stmt = std::make_shared<ExpressionStatement>();
+    stmt->tag = NodeType::EXPRESSION_STATEMENT;
     stmt->token = curToken_;
     stmt->expression = parseExpression(LOWEST);
 
@@ -550,6 +559,7 @@ StatementPtr Parser::parseBlockStatementAsStatement() {
 
 StatementPtr Parser::parseAssignStatement() {
     auto stmt = std::make_shared<AssignStatement>();
+    stmt->tag = NodeType::ASSIGN_STATEMENT;
     stmt->token = curToken_;
 
     ExpressionPtr target;
@@ -878,6 +888,7 @@ StatementPtr Parser::parseDecoratedDefinition() {
 
 std::shared_ptr<BlockStatement> Parser::parseBlockStatement() {
     auto block = std::make_shared<BlockStatement>();
+    block->tag = NodeType::BLOCK_STATEMENT;
     block->token = curToken_;
     nextToken();
 

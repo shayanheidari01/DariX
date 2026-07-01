@@ -1,6 +1,6 @@
 # Changelog — DariX C++ Implementation
 
-## [1.0.0] — 2026
+## [1.0.1] — 2026
 
 ### Core Language
 - Full lexer, parser (Pratt), and AST for all DariX constructs

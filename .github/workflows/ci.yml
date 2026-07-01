@@ -8,15 +8,22 @@ on:
 
 jobs:
   build:
-    name: Build & Test (${{ matrix.os }})
+    name: Build & Test (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            name: Linux
+            name: linux-amd64
+          - os: ubuntu-24.04-arm
+            name: linux-arm64
           - os: windows-latest
-            name: Windows
+            name: windows-amd64
+          - os: macos-15-intel
+            name: macos-amd64
+          - os: macos-latest
+            name: macos-arm64
 
     steps:
     - name: Checkout code
@@ -25,8 +32,8 @@ jobs:
     - name: Install CMake
       uses: lukka/get-cmake@latest
 
-    - name: Configure (Linux)
-      if: runner.os == 'Linux'
+    - name: Configure (Unix)
+      if: runner.os != 'Windows'
       run: cmake -S cpp-src -B cpp-src/build -DCMAKE_BUILD_TYPE=Release
 
     - name: Configure (Windows)
@@ -36,54 +43,79 @@ jobs:
     - name: Build
       run: cmake --build cpp-src/build --config Release
 
-    - name: Run language feature tests (Linux)
-      if: runner.os == 'Linux'
+    - name: Run language tests (Unix)
+      if: runner.os != 'Windows'
       run: ./cpp-src/build/darix run cpp-src/test_all_features.dax
 
-    - name: Run language feature tests (Windows)
+    - name: Run language tests (Windows)
       if: runner.os == 'Windows'
       run: .\cpp-src\build\darix.exe run cpp-src\test_all_features.dax
 
-    - name: Run comprehensive tests (Linux)
-      if: runner.os == 'Linux'
+    - name: Run module tests (Unix)
+      if: runner.os != 'Windows'
       run: |
-        ./cpp-src/build/darix run cpp-src/test_native.dax
-        ./cpp-src/build/darix run cpp-src/test_array.dax
-        ./cpp-src/build/darix run cpp-src/test_string.dax
-        ./cpp-src/build/darix run cpp-src/test_map.dax
-        ./cpp-src/build/darix run cpp-src/test_set.dax
-        ./cpp-src/build/darix run cpp-src/test_json.dax
-        ./cpp-src/build/darix run cpp-src/test_fs.dax
-        ./cpp-src/build/darix run cpp-src/test_crypto.dax
-        ./cpp-src/build/darix run cpp-src/test_datetime.dax
-        ./cpp-src/build/darix run cpp-src/test_regex.dax
-        ./cpp-src/build/darix run cpp-src/test_encoding.dax
+        for f in cpp-src/test_native.dax cpp-src/test_array.dax cpp-src/test_string.dax \
+                 cpp-src/test_map.dax cpp-src/test_set.dax cpp-src/test_json.dax \
+                 cpp-src/test_fs.dax cpp-src/test_crypto.dax cpp-src/test_datetime.dax \
+                 cpp-src/test_regex.dax cpp-src/test_encoding.dax; do
+          echo "--- $f ---"
+          ./cpp-src/build/darix run "$f" || exit 1
+        done
 
-    - name: Run comprehensive tests (Windows)
+    - name: Run module tests (Windows)
       if: runner.os == 'Windows'
+      shell: pwsh
       run: |
-        .\cpp-src\build\darix.exe run cpp-src\test_native.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_array.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_string.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_map.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_set.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_json.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_fs.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_crypto.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_datetime.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_regex.dax
-        .\cpp-src\build\darix.exe run cpp-src\test_encoding.dax
+        $tests = @(
+          "cpp-src\test_native.dax", "cpp-src\test_array.dax", "cpp-src\test_string.dax",
+          "cpp-src\test_map.dax", "cpp-src\test_set.dax", "cpp-src\test_json.dax",
+          "cpp-src\test_fs.dax", "cpp-src\test_crypto.dax", "cpp-src\test_datetime.dax",
+          "cpp-src\test_regex.dax", "cpp-src\test_encoding.dax"
+        )
+        foreach ($t in $tests) {
+          Write-Host "--- $t ---"
+          & .\cpp-src\build\darix.exe run $t
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+        }
 
-    - name: Upload binary (Linux)
-      if: runner.os == 'Linux'
+    - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
-        name: darix-linux-amd64
+        name: darix-${{ matrix.name }}
+        path: cpp-src/build/darix${{ runner.os == 'Windows' && '.exe' || '' }}
+        if-no-files-found: error
+
+  android:
+    name: Cross-compile (android-arm64)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Setup Android NDK
+      uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r27c
+
+    - name: Configure CMake
+      run: |
+        cmake -S cpp-src -B cpp-src/build \
+          -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-24 \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build cpp-src/build --config Release
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: darix-android-arm64
         path: cpp-src/build/darix
-
-    - name: Upload binary (Windows)
-      if: runner.os == 'Windows'
-      uses: actions/upload-artifact@v4
-      with:
-        name: darix-windows-amd64
-        path: cpp-src/build/darix.exe
+        if-no-files-found: error

@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -160,7 +159,8 @@ struct Error : Object {
 
 // Environment
 struct Environment {
-    std::unordered_map<std::string, ObjectPtr> store;
+    // Vector-based store for fast small-environment lookups
+    std::vector<std::pair<std::string, ObjectPtr>> store;
     std::shared_ptr<Environment> outer;
 
     ObjectPtr get(const std::string& name) const;
@@ -170,10 +170,14 @@ struct Environment {
     std::unordered_map<std::string, ObjectPtr> getAll() const;
     bool hasLocal(const std::string& name) const;
     std::shared_ptr<Environment> outerEnv() const { return outer; }
+
+    void reset(std::shared_ptr<Environment> newOuter);
 };
 
 std::shared_ptr<Environment> newEnvironment();
 std::shared_ptr<Environment> newEnclosedEnvironment(std::shared_ptr<Environment> outer);
+std::shared_ptr<Environment> getPooledEnvironment(std::shared_ptr<Environment> outer);
+void returnPooledEnvironment(std::shared_ptr<Environment> env);
 
 // Function
 struct Function : Object {

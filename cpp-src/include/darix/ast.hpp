@@ -21,11 +21,30 @@ using ExpressionPtr = std::shared_ptr<Expression>;
 using BlockStatementPtr = std::shared_ptr<BlockStatement>;
 using IdentifierPtr = std::shared_ptr<Identifier>;
 
+// Node type tags for fast dispatch
+enum class NodeType : uint8_t {
+    PROGRAM, EXPRESSION_STATEMENT, BLOCK_STATEMENT, STANDALONE_BLOCK,
+    LET_STATEMENT, ASSIGN_STATEMENT, RETURN_STATEMENT,
+    WHILE_STATEMENT, FOR_STATEMENT, BREAK_STATEMENT, CONTINUE_STATEMENT,
+    FUNCTION_DECLARATION, CLASS_DECLARATION,
+    TRY_STATEMENT, THROW_STATEMENT, IMPORT_STATEMENT,
+    DEL_STATEMENT, ASSERT_STATEMENT, PASS_STATEMENT,
+    GLOBAL_STATEMENT, NONLOCAL_STATEMENT, WITH_STATEMENT,
+    IDENTIFIER, INTEGER_LITERAL, FLOAT_LITERAL, STRING_LITERAL,
+    BOOLEAN_LITERAL, NULL_LITERAL,
+    PREFIX_EXPRESSION, INFIX_EXPRESSION, IF_EXPRESSION,
+    FUNCTION_LITERAL, CALL_EXPRESSION, ARRAY_LITERAL, MAP_LITERAL,
+    INDEX_EXPRESSION, MEMBER_EXPRESSION, WHILE_EXPRESSION,
+    IN_EXPRESSION, IS_EXPRESSION, LAMBDA_EXPRESSION,
+    YIELD_EXPRESSION, EXCEPTION_EXPRESSION
+};
+
 // Base interfaces
 struct Node {
     virtual ~Node() = default;
     virtual std::string tokenLiteral() const = 0;
     virtual std::string inspect() const = 0;
+    NodeType tag = NodeType::PROGRAM; // type tag for fast dispatch
 };
 
 struct Statement : virtual Node {

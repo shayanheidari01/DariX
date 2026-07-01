@@ -192,35 +192,49 @@ uint64_t String::hashKey() const { return fnv64a(value); }
 // ============ Environment ============
 
 ObjectPtr Environment::get(const std::string& name) const {
-    auto it = store.find(name);
-    if (it != store.end()) return it->second;
+    // Linear scan - faster than hash map for small environments (1-5 vars)
+    for (size_t i = store.size(); i > 0; ) {
+        --i;
+        if (store[i].first == name) return store[i].second;
+    }
     if (outer) return outer->get(name);
     return nullptr;
 }
 
 ObjectPtr Environment::set(const std::string& name, ObjectPtr val) {
-    store[name] = val;
+    // Check if already exists (update in place)
+    for (size_t i = 0; i < store.size(); i++) {
+        if (store[i].first == name) { store[i].second = val; return val; }
+    }
+    store.emplace_back(name, val);
     return val;
 }
 
 bool Environment::update(const std::string& name, ObjectPtr val) {
-    auto it = store.find(name);
-    if (it != store.end()) { it->second = val; return true; }
+    for (size_t i = 0; i < store.size(); i++) {
+        if (store[i].first == name) { store[i].second = val; return true; }
+    }
     if (outer) return outer->update(name, val);
     return false;
 }
 
 bool Environment::erase(const std::string& name) {
-    auto it = store.find(name);
-    if (it != store.end()) { store.erase(it); return true; }
+    for (auto it = store.begin(); it != store.end(); ++it) {
+        if (it->first == name) { store.erase(it); return true; }
+    }
     if (outer) return outer->erase(name);
     return false;
 }
 
-std::unordered_map<std::string, ObjectPtr> Environment::getAll() const { return store; }
+std::unordered_map<std::string, ObjectPtr> Environment::getAll() const {
+    std::unordered_map<std::string, ObjectPtr> result;
+    for (auto& [k, v] : store) result[k] = v;
+    return result;
+}
 
 bool Environment::hasLocal(const std::string& name) const {
-    return store.find(name) != store.end();
+    for (auto& [k, v] : store) { if (k == name) return true; }
+    return false;
 }
 
 std::shared_ptr<Environment> newEnvironment() {
@@ -231,6 +245,36 @@ std::shared_ptr<Environment> newEnclosedEnvironment(std::shared_ptr<Environment>
     auto env = std::make_shared<Environment>();
     env->outer = outer;
     return env;
+}
+
+// Environment pooling for performance (single-threaded, no mutex needed)
+static std::vector<std::shared_ptr<Environment>> envPool;
+
+std::shared_ptr<Environment> getPooledEnvironment(std::shared_ptr<Environment> outer) {
+    std::shared_ptr<Environment> env;
+    if (!envPool.empty()) {
+        env = envPool.back();
+        envPool.pop_back();
+    }
+    if (!env) {
+        env = std::make_shared<Environment>();
+    }
+    env->reset(outer);
+    return env;
+}
+
+void returnPooledEnvironment(std::shared_ptr<Environment> env) {
+    if (!env) return;
+    env->store.clear();
+    env->outer = nullptr;
+    if (envPool.size() < 4096) {
+        envPool.push_back(env);
+    }
+}
+
+void Environment::reset(std::shared_ptr<Environment> newOuter) {
+    store.clear();
+    outer = newOuter;
 }
 
 // ============ Singletons ============

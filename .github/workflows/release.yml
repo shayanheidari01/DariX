@@ -3,7 +3,7 @@ name: Release DariX
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -14,20 +14,33 @@ jobs:
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             name: linux-amd64
             artifact: darix-linux-amd64
             ext: ""
+          - os: ubuntu-24.04-arm
+            name: linux-arm64
+            artifact: darix-linux-arm64
+            ext: ""
           - os: windows-latest
             name: windows-amd64
             artifact: darix-windows-amd64
             ext: ".exe"
+          - os: macos-15-intel
+            name: macos-amd64
+            artifact: darix-macos-amd64
+            ext: ""
+          - os: macos-latest
+            name: macos-arm64
+            artifact: darix-macos-arm64
+            ext: ""
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
@@ -39,12 +52,12 @@ jobs:
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/v}
           else
-            VERSION="1.0.0"
+            VERSION="1.0.1"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Configure (Linux)
-        if: runner.os == 'Linux'
+      - name: Configure (Unix)
+        if: runner.os != 'Windows'
         run: cmake -S cpp-src -B cpp-src/build -DCMAKE_BUILD_TYPE=Release
 
       - name: Configure (Windows)
@@ -54,54 +67,71 @@ jobs:
       - name: Build
         run: cmake --build cpp-src/build --config Release
 
-      - name: Run tests (Linux)
-        if: runner.os == 'Linux'
+      - name: Run tests (Unix)
+        if: runner.os != 'Windows'
         run: ./cpp-src/build/darix run cpp-src/test_all_features.dax
 
       - name: Run tests (Windows)
         if: runner.os == 'Windows'
         run: .\cpp-src\build\darix.exe run cpp-src\test_all_features.dax
 
-      - name: Package binary (Linux)
-        if: runner.os == 'Linux'
+      - name: Package archive (Unix)
+        if: runner.os != 'Windows'
         run: |
           cd cpp-src/build
-          tar czf darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz darix
+          tar czf darix-${{ steps.version.outputs.version }}-${{ matrix.name }}.tar.gz darix
 
-      - name: Package binary (Windows)
+      - name: Package archive (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path "cpp-src\build\darix.exe" -DestinationPath "cpp-src\build\darix-${{ steps.version.outputs.version }}-windows-amd64.zip"
+          Compress-Archive -Path "cpp-src\build\darix.exe" -DestinationPath "cpp-src\build\darix-${{ steps.version.outputs.version }}-${{ matrix.name }}.zip"
 
-      - name: Upload artifact (Linux)
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+      - name: Upload archive (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v7
         with:
-          name: darix-${{ steps.version.outputs.version }}-linux-amd64
-          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+          name: darix-${{ steps.version.outputs.version }}-${{ matrix.name }}
+          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-${{ matrix.name }}.tar.gz
+          if-no-files-found: error
 
-      - name: Upload artifact (Windows)
+      - name: Upload archive (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: darix-${{ steps.version.outputs.version }}-windows-amd64
-          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-windows-amd64.zip
+          name: darix-${{ steps.version.outputs.version }}-${{ matrix.name }}
+          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-${{ matrix.name }}.zip
+          if-no-files-found: error
+
+      - name: Prepare raw binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp cpp-src/build/darix${{ matrix.ext }} dist/${{ matrix.artifact }}${{ matrix.ext }}
 
       - name: Upload raw binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
-          path: cpp-src/build/darix${{ matrix.ext }}
+          path: dist/${{ matrix.artifact }}${{ matrix.ext }}
+          if-no-files-found: error
 
-  release:
-    name: Create Release
-    needs: build
+  android:
+    name: Build (android-arm64)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
 
       - name: Get version
         id: version
@@ -110,20 +140,70 @@ jobs:
           if [[ $GITHUB_REF == refs/tags/* ]]; then
             VERSION=${GITHUB_REF#refs/tags/v}
           else
-            VERSION="1.0.0"
+            VERSION="1.0.1"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Configure CMake
+        run: |
+          cmake -S cpp-src -B cpp-src/build \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.setup-ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build cpp-src/build --config Release
+
+      - name: Package archive
+        run: |
+          cd cpp-src/build
+          tar czf darix-${{ steps.version.outputs.version }}-android-arm64.tar.gz darix
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: darix-${{ steps.version.outputs.version }}-android-arm64
+          path: cpp-src/build/darix-${{ steps.version.outputs.version }}-android-arm64.tar.gz
+          if-no-files-found: error
+
+      - name: Upload raw binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: darix-android-arm64
+          path: cpp-src/build/darix
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: [build, android]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="1.0.1"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./artifacts
 
       - name: List artifacts
-        run: find ./artifacts -type f | head -20
+        run: find ./artifacts -type f | sort
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: DariX v${{ steps.version.outputs.version }}
@@ -138,17 +218,43 @@ jobs:
             | Platform | File | Notes |
             |----------|------|-------|
             | Linux x86_64 | `darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz` | Extract and run `./darix` |
+            | Linux ARM64 | `darix-${{ steps.version.outputs.version }}-linux-arm64.tar.gz` | Extract and run `./darix` |
             | Windows x86_64 | `darix-${{ steps.version.outputs.version }}-windows-amd64.zip` | Extract and run `darix.exe` |
+            | macOS x86_64 (Intel) | `darix-${{ steps.version.outputs.version }}-macos-amd64.tar.gz` | Extract and run `./darix` |
+            | macOS ARM64 (Apple Silicon) | `darix-${{ steps.version.outputs.version }}-macos-arm64.tar.gz` | Extract and run `./darix` |
+            | Android ARM64 | `darix-${{ steps.version.outputs.version }}-android-arm64.tar.gz` | For use with Termux on Android |
+
+            Unpacked raw binaries for each platform are attached below as well.
 
             ### Quick Start
             ```bash
-            # Linux
+            # Linux x86_64
             tar xzf darix-${{ steps.version.outputs.version }}-linux-amd64.tar.gz
+            chmod +x darix
+            ./darix run your_script.dax
+
+            # Linux ARM64
+            tar xzf darix-${{ steps.version.outputs.version }}-linux-arm64.tar.gz
+            chmod +x darix
+            ./darix run your_script.dax
+
+            # macOS (Intel)
+            tar xzf darix-${{ steps.version.outputs.version }}-macos-amd64.tar.gz
+            chmod +x darix
+            ./darix run your_script.dax
+
+            # macOS (Apple Silicon)
+            tar xzf darix-${{ steps.version.outputs.version }}-macos-arm64.tar.gz
             chmod +x darix
             ./darix run your_script.dax
 
             # Windows
             # Extract the .zip and run darix.exe
+
+            # Android (Termux)
+            tar xzf darix-${{ steps.version.outputs.version }}-android-arm64.tar.gz
+            chmod +x darix
+            ./darix run your_script.dax
             ```
 
             ### What's New
@@ -159,8 +265,4 @@ jobs:
             - [Module Reference](docs/modules.md)
             - [Build Guide](docs/building.md)
             - [Tutorial](docs/tutorial.md)
-          files: |
-            artifacts/darix-${{ steps.version.outputs.version }}-linux-amd64/*
-            artifacts/darix-${{ steps.version.outputs.version }}-windows-amd64/*
-            artifacts/darix-linux-amd64/*
-            artifacts/darix-windows-amd64/*
+          files: artifacts/*/*

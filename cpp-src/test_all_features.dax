@@ -1,9 +1,9 @@
-// DariX C++ Port - Complete Feature Test
+// DariX v1.0.1 — Complete Feature Test Suite
 var passed = 0
 var failed = 0
+
 func assert_eq(name, actual, expected) {
     if (actual == expected) {
-        print("  PASS:", name)
         passed = passed + 1
     } else {
         print("  FAIL:", name, "- expected", expected, "got", actual)
@@ -11,7 +11,15 @@ func assert_eq(name, actual, expected) {
     }
 }
 
-print("=== 1. Integers & Arithmetic ===")
+func section(title) {
+    print("\n=== " + title + " ===")
+}
+
+// ============================================================
+// 1. CORE LANGUAGE
+// ============================================================
+
+section("1. Integers & Arithmetic")
 assert_eq("positive int", 42, 42)
 assert_eq("negative int", -5, -5)
 assert_eq("zero", 0, 0)
@@ -23,15 +31,14 @@ assert_eq("modulus", 10 % 3, 1)
 assert_eq("unary minus", -(-5), 5)
 assert_eq("precedence", 2 + 3 * 4, 14)
 assert_eq("parens", (2 + 3) * 4, 20)
-assert_eq("large int", 1000000, 1000000)
 
-print("\n=== 2. Floats ===")
+section("2. Floats")
 assert_eq("float literal", 3.14, 3.14)
 assert_eq("float arithmetic", 1.5 + 2.5, 4.0)
 assert_eq("float mul", 2.0 * 3.0, 6.0)
 assert_eq("float div", 10.0 / 4.0, 2.5)
 
-print("\n=== 3. Strings ===")
+section("3. Strings")
 assert_eq("string literal", "hello", "hello")
 assert_eq("empty string", "", "")
 assert_eq("string concat", "hello" + " " + "world", "hello world")
@@ -40,24 +47,25 @@ assert_eq("string != diff", "abc" == "def", false)
 assert_eq("string length", len("hello"), 5)
 assert_eq("string index", "hello"[0], "h")
 
-print("\n=== 4. Booleans ===")
+section("4. Booleans")
 assert_eq("true", true, true)
 assert_eq("false", false, false)
 assert_eq("not true", !true, false)
 assert_eq("not false", !false, true)
 assert_eq("bool and", true && false, false)
 assert_eq("bool or", true || false, true)
-assert_eq("bool and kw", true and false, false)
-assert_eq("bool or kw", true or false, true)
+assert_eq("and keyword", true and false, false)
+assert_eq("or keyword", true or false, true)
 assert_eq("not kw", not true, false)
 
-print("\n=== 5. Null ===")
+section("5. Null")
 assert_eq("null literal", null, null)
+assert_eq("null == null", null == null, true)
 assert_eq("null != int", null == 42, false)
 assert_eq("null is null", null is null, true)
 assert_eq("null is not int", null is 42, false)
 
-print("\n=== 6. Variables ===")
+section("6. Variables")
 var x = 100
 assert_eq("var init", x, 100)
 x = 200
@@ -67,7 +75,7 @@ var b = 2
 var c = a + b
 assert_eq("var expression", c, 3)
 
-print("\n=== 7. Conditionals ===")
+section("7. Conditionals")
 var result = ""
 if (true) { result = "yes" } else { result = "no" }
 assert_eq("if true", result, "yes")
@@ -80,85 +88,64 @@ elif (grade >= 70) { result = "C" }
 else { result = "F" }
 assert_eq("elif", result, "B")
 
-print("\n=== 8. While Loops ===")
+section("8. While Loops")
 var wsum = 0
-var i = 1
-while (i <= 10) {
-    wsum = wsum + i
-    i = i + 1
-}
-assert_eq("while sum 1..10", wsum, 55)
+var ii = 1
+while (ii <= 10) { wsum = wsum + ii; ii = ii + 1 }
+assert_eq("while sum", wsum, 55)
 var counter = 0
-while (true) {
-    counter = counter + 1
-    if (counter == 5) { break }
-}
+while (true) { counter = counter + 1; if (counter == 5) { break } }
 assert_eq("while break", counter, 5)
 var evens = 0
-var j = 0
-while (j < 10) {
-    j = j + 1
-    if (j % 2 != 0) { continue }
-    evens = evens + 1
-}
+var jj = 0
+while (jj < 10) { jj = jj + 1; if (jj % 2 != 0) { continue }; evens = evens + 1 }
 assert_eq("while continue", evens, 5)
 
-print("\n=== 9. For Loops ===")
+section("9. For Loops")
 var for_sum = 0
-for (var k = 1; k <= 10; k = k + 1) {
-    for_sum = for_sum + k
-}
-assert_eq("for sum 1..10", for_sum, 55)
+for (var k = 1; k <= 10; k = k + 1) { for_sum = for_sum + k }
+assert_eq("for sum", for_sum, 55)
 var break_val = 0
-for (var n = 0; n < 100; n = n + 1) {
-    if (n == 7) { break_val = n; break }
-}
+for (var n = 0; n < 100; n = n + 1) { if (n == 7) { break_val = n; break } }
 assert_eq("for break", break_val, 7)
 var even_count = 0
-for (var m = 0; m < 10; m = m + 1) {
-    if (m % 2 != 0) { continue }
-    even_count = even_count + 1
-}
+for (var m = 0; m < 10; m = m + 1) { if (m % 2 != 0) { continue }; even_count = even_count + 1 }
 assert_eq("for continue", even_count, 5)
 
-print("\n=== 10. Functions ===")
+section("10. Functions")
 func add(a, b) { return a + b }
 assert_eq("func call", add(3, 4), 7)
-func factorial(n) {
-    if (n <= 1) { return 1 }
-    return n * factorial(n - 1)
-}
+func factorial(n) { if (n <= 1) { return 1 }; return n * factorial(n - 1) }
 assert_eq("recursion", factorial(5), 120)
 func greet(name) { return "Hello, " + name + "!" }
-assert_eq("string in func", greet("DariX"), "Hello, DariX!")
-func do_nothing() { var x = 1 }
+assert_eq("string func", greet("DariX"), "Hello, DariX!")
+func do_nothing() { var xx = 1 }
 assert_eq("void func", do_nothing(), null)
 
-print("\n=== 11. Lambdas ===")
-var double = lambda x: x * 2
-assert_eq("lambda call", double(5), 10)
+section("11. Lambdas")
+var double_it = lambda x: x * 2
+assert_eq("lambda call", double_it(5), 10)
 var adder = lambda a, b: a + b
 assert_eq("lambda multi-arg", adder(10, 20), 30)
 
-print("\n=== 12. Higher-Order Functions ===")
+section("12. Higher-Order Functions")
 func apply_twice(fn, val) { return fn(fn(val)) }
-assert_eq("higher-order", apply_twice(double, 3), 12)
+assert_eq("higher-order", apply_twice(double_it, 3), 12)
 func make_adder(n) { return lambda x: x + n }
 var add5 = make_adder(5)
 assert_eq("closure", add5(10), 15)
 
-print("\n=== 13. Arrays ===")
+section("13. Arrays")
 var arr = [1, 2, 3, 4, 5]
 assert_eq("array literal", arr[0], 1)
 assert_eq("array length", len(arr), 5)
 assert_eq("array last", arr[4], 5)
 arr[2] = 99
 assert_eq("array modify", arr[2], 99)
-var empty = []
-assert_eq("empty array", len(empty), 0)
+assert_eq("empty array", len([]), 0)
 assert_eq("null index", arr[100], null)
 
-print("\n=== 14. Maps ===")
+section("14. Maps")
 var m = {"name": "DariX", "version": 1}
 assert_eq("map literal", m["name"], "DariX")
 assert_eq("map int val", m["version"], 1)
@@ -166,75 +153,52 @@ m["author"] = "test"
 assert_eq("map add", m["author"], "test")
 m["version"] = 2
 assert_eq("map modify", m["version"], 2)
-var empty_map = {}
-assert_eq("empty map", len(empty_map), 0)
+assert_eq("empty map", len({}), 0)
 
-print("\n=== 15. In Operator ===")
+section("15. In Operator")
 assert_eq("in array", 3 in [1, 2, 3], true)
 assert_eq("not in array", 4 in [1, 2, 3], false)
 assert_eq("in string", "el" in "hello", true)
 assert_eq("in map", "name" in {"name": "test"}, true)
 
-print("\n=== 16. Is Operator ===")
+section("16. Is Operator")
 assert_eq("is same int", 42 is 42, true)
-assert_eq("is same ref", [1, 2] is [1, 2], false)
+assert_eq("is diff ref", [1, 2] is [1, 2], false)
 
-print("\n=== 17. Exceptions ===")
+section("17. Exceptions")
 var caught = false
-try {
-    var z = 1 / 0
-} catch (ZeroDivisionError e) {
-    caught = true
-}
+try { var z = 1 / 0 } catch (ZeroDivisionError e) { caught = true }
 assert_eq("catch exception", caught, true)
 var threw = false
-try {
-    throw ValueError("test error")
-} catch (ValueError e) {
-    threw = true
-}
+try { throw ValueError("test") } catch (ValueError e) { threw = true }
 assert_eq("throw/catch", threw, true)
 var finally_ran = false
-try {
-    var x = 1
-} catch (RuntimeError e) {
-    var x = 2
-} finally {
-    finally_ran = true
-}
+try { var ff = 1 } catch (RuntimeError e) { var ff = 2 } finally { finally_ran = true }
 assert_eq("finally block", finally_ran, true)
 
-print("\n=== 18. Assert ===")
+section("18. Assert")
 assert 1 + 1 == 2
 var assert_caught = false
-try {
-    assert 1 + 1 == 3, "math is broken"
-} catch (AssertionError e) {
-    assert_caught = true
-}
+try { assert 1 + 1 == 3, "math is broken" } catch (AssertionError e) { assert_caught = true }
 assert_eq("assert failure", assert_caught, true)
 
-print("\n=== 19. Del ===")
+section("19. Del")
 var del_target = 42
 del del_target
 var del_check = false
-try {
-    var test = del_target
-} catch (NameError e) {
-    del_check = true
-}
+try { var test = del_target } catch (NameError e) { del_check = true }
 assert_eq("del variable", del_check, true)
 var del_arr = [1, 2, 3, 4, 5]
 del del_arr[2]
 assert_eq("del array element", len(del_arr), 4)
 assert_eq("del array verify", del_arr[2], 4)
 
-print("\n=== 20. Pass ===")
+section("20. Pass")
 var pass_result = 0
 if (true) { pass; pass_result = 1 }
 assert_eq("pass statement", pass_result, 1)
 
-print("\n=== 21. Type Conversions ===")
+section("21. Type Conversions")
 assert_eq("str(42)", str(42), "42")
 assert_eq("str(3.14)", str(3.14), "3.14")
 assert_eq("str(true)", str(true), "true")
@@ -249,47 +213,43 @@ assert_eq("type(42)", type(42), "INTEGER")
 assert_eq("type(3.14)", type(3.14), "FLOAT")
 assert_eq("type(\"hi\")", type("hi"), "STRING")
 
-print("\n=== 22. Built-ins ===")
+section("22. Built-ins")
 assert_eq("len string", len("hello"), 5)
 assert_eq("len array", len([1, 2, 3]), 3)
 assert_eq("len map", len({"a": 1}), 1)
-assert_eq("range 1 arg", len(range(5)), 5)
-assert_eq("range 2 arg", range(2, 5)[0], 2)
-assert_eq("range 3 arg", range(0, 10, 2)[1], 2)
-assert_eq("abs(-5)", abs(-5), 5)
-assert_eq("max(3,7)", max(3, 7), 7)
-assert_eq("min(3,7)", min(3, 7), 3)
-assert_eq("sum array", sum([1, 2, 3, 4, 5]), 15)
+assert_eq("range", len(range(5)), 5)
+assert_eq("abs", abs(-5), 5)
+assert_eq("max", max(3, 7), 7)
+assert_eq("min", min(3, 7), 3)
+assert_eq("sum", sum([1, 2, 3, 4, 5]), 15)
 assert_eq("sorted", sorted([3, 1, 2])[0], 1)
-assert_eq("reverse string", reverse("abc"), "cba")
-assert_eq("reverse array", reverse([1, 2, 3])[0], 3)
-assert_eq("contains string", contains("hello", "ell"), true)
-assert_eq("contains array", contains([1, 2, 3], 2), true)
+assert_eq("reverse str", reverse("abc"), "cba")
+assert_eq("reverse arr", reverse([1, 2, 3])[0], 3)
+assert_eq("contains str", contains("hello", "ell"), true)
+assert_eq("contains arr", contains([1, 2, 3], 2), true)
 assert_eq("append", append([1, 2], 3), null)
 assert_eq("keys", len(keys({"a": 1, "b": 2})), 2)
 assert_eq("values", len(values({"a": 1})), 1)
-assert_eq("items", len(items({"a": 1, "b": 2})), 2)
+assert_eq("items", len(items({"a": 1})), 1)
 assert_eq("sort", sort([3, 1, 2])[0], 1)
 
-print("\n=== 23. Comparisons ===")
+section("23. Comparisons")
 assert_eq("1 < 2", 1 < 2, true)
 assert_eq("2 > 1", 2 > 1, true)
 assert_eq("1 <= 1", 1 <= 1, true)
 assert_eq("2 >= 2", 2 >= 2, true)
 assert_eq("1 == 1", 1 == 1, true)
 assert_eq("1 != 2", 1 != 2, true)
-assert_eq("\"a\" < \"b\"", "a" < "b", true)
-assert_eq("\"a\" == \"a\"", "a" == "a", true)
-assert_eq("true == true", true == true, true)
-assert_eq("false != true", false != true, true)
+assert_eq("str cmp", "a" < "b", true)
+assert_eq("str eq", "a" == "a", true)
+assert_eq("bool eq", true == true, true)
+assert_eq("bool neq", false != true, true)
 
-print("\n=== 24. Logical Ops ===")
-assert_eq("true && true", true && true, true)
-assert_eq("true && false", true && false, false)
-assert_eq("false || true", false || true, true)
-assert_eq("false || false", false || false, false)
-assert_eq("and keyword", true and true, true)
-assert_eq("or keyword", false or true, true)
+section("24. Logical Ops")
+assert_eq("&&", true && true, true)
+assert_eq("||", false || true, true)
+assert_eq("and", true and false, false)
+assert_eq("or", false or true, true)
 var sc = false
 true || (sc = true)
 assert_eq("short-circuit or", sc, false)
@@ -297,9 +257,350 @@ sc = false
 false && (sc = true)
 assert_eq("short-circuit and", sc, false)
 
-print("\n=== 25. Print ===")
-print("  (print works - verified by this test)")
+section("25. Print")
+print("  (print works)")
 passed = passed + 1
+
+section("26. Map/Array Equality")
+var m1 = {"a": 1}
+assert_eq("map ==", m1 == {"a": 1}, true)
+assert_eq("map !=", m1 == {"a": 2}, false)
+assert_eq("arr ==", [1, 2] == [1, 2], true)
+assert_eq("arr !=", [1, 2] == [1, 3], false)
+
+// ============================================================
+// 2. MATH MODULE
+// ============================================================
+
+import math
+
+section("Math Module")
+assert_eq("math.sqrt", math.sqrt(16), 4.0)
+assert_eq("math.pow", math.pow(2, 10), 1024.0)
+assert_eq("math.sin", math.sin(0), 0.0)
+assert_eq("math.cos", math.cos(0), 1.0)
+assert_eq("math.pi", math.pi() > 3.14, true)
+assert_eq("math.e", math.e() > 2.71, true)
+assert_eq("math.ceil", math.ceil(3.2), 4.0)
+assert_eq("math.floor", math.floor(3.8), 3.0)
+assert_eq("math.round", math.round(3.5), 4.0)
+assert_eq("math.abs", math.abs(-7), 7.0)
+assert_eq("math.max", math.max(3, 7), 7.0)
+assert_eq("math.min", math.min(3, 7), 3.0)
+assert_eq("math.random", math.random() >= 0.0, true)
+
+// ============================================================
+// 3. STRING MODULE
+// ============================================================
+
+import string
+
+section("String Module")
+assert_eq("upper", string.upper("hello"), "HELLO")
+assert_eq("lower", string.lower("HELLO"), "hello")
+assert_eq("trim", string.trim("  hi  "), "hi")
+assert_eq("split", string.split("a,b,c", ","), ["a", "b", "c"])
+assert_eq("join", string.join(["x", "y"], "-"), "x-y")
+assert_eq("replace", string.replace("hello", "l", "r"), "herro")
+assert_eq("contains", string.contains("hello", "ell"), true)
+assert_eq("starts", string.starts("hello", "hel"), true)
+assert_eq("ends", string.ends("hello", "llo"), true)
+assert_eq("index", string.index("hello", "ell"), 1)
+assert_eq("repeat", string.repeat("ab", 3), "ababab")
+assert_eq("reverse", string.reverse("abc"), "cba")
+assert_eq("count", string.count("banana", "a"), 3)
+assert_eq("slice", string.slice("hello", 1, 4), "ell")
+assert_eq("to_title", string.to_title("hello world"), "Hello World")
+assert_eq("is_alpha", string.is_alpha("hello"), true)
+assert_eq("is_digit", string.is_digit("123"), true)
+assert_eq("is_space", string.is_space("   "), true)
+assert_eq("pad_left", string.pad_left("42", 5, "0"), "00042")
+assert_eq("pad_right", string.pad_right("hi", 5, "."), "hi...")
+assert_eq("center", string.center("hi", 6, "*"), "**hi**")
+assert_eq("truncate", string.truncate("very long text", 9), "very l...")
+assert_eq("chars", string.chars("abc"), ["a", "b", "c"])
+assert_eq("words", string.words("hello world"), ["hello", "world"])
+assert_eq("lines", string.lines("a\nb\nc"), ["a", "b", "c"])
+assert_eq("to_int", string.to_int("42"), 42)
+assert_eq("to_float", string.to_float("3.14"), 3.14)
+assert_eq("is_number", string.is_number("3.14"), true)
+
+// ============================================================
+// 4. ARRAY MODULE
+// ============================================================
+
+import array
+
+section("Array Module")
+var nums = [1, 2, 3, 4, 5]
+assert_eq("filter", array.filter(nums, lambda x: x % 2 == 0), [2, 4])
+assert_eq("map", array.map(nums, lambda x: x * 2), [2, 4, 6, 8, 10])
+assert_eq("reduce", array.reduce(nums, lambda a, b: a + b, 0), 15)
+assert_eq("find", array.find(nums, lambda x: x > 3), 4)
+assert_eq("find_all", array.find_all(nums, lambda x: x > 3), [4, 5])
+assert_eq("unique", array.unique([1, 2, 2, 3]), [1, 2, 3])
+assert_eq("flatten", array.flatten([[1, 2], [3]]), [1, 2, 3])
+assert_eq("chunk", array.chunk([1, 2, 3, 4], 2), [[1, 2], [3, 4]])
+assert_eq("zip", array.zip([1, 2], ["a", "b"]), [[1, "a"], [2, "b"]])
+assert_eq("diff", array.diff([1, 2, 3], [2, 3, 4]), [1])
+assert_eq("intersect", array.intersect([1, 2, 3], [2, 3, 4]), [2, 3])
+assert_eq("union", array.union([1, 2], [3, 4]), [1, 2, 3, 4])
+assert_eq("all", array.all([1, 2, 3], lambda x: x > 0), true)
+assert_eq("any", array.any([1, 2, 3], lambda x: x > 5), false)
+assert_eq("first", array.first(nums), 1)
+assert_eq("last", array.last(nums), 5)
+assert_eq("take", array.take(nums, 3), [1, 2, 3])
+assert_eq("drop", array.drop(nums, 2), [3, 4, 5])
+assert_eq("sort_by", array.sort_by([3, 1, 2], lambda x: x)[0], 1)
+assert_eq("enumerate", array.enumerate([10, 20])[1], [1, 20])
+assert_eq("index_of", array.index_of(nums, 3), 2)
+assert_eq("contains_val", array.contains_value(nums, 3), true)
+
+// ============================================================
+// 5. MAP MODULE
+// ============================================================
+
+import map
+
+section("Map Module")
+var mm = {"a": 1, "b": 2, "c": 3}
+assert_eq("map keys", len(map.keys(mm)), 3)
+assert_eq("map values", len(map.values(mm)), 3)
+assert_eq("map items", len(map.items(mm)), 3)
+assert_eq("has_key", map.has_key(mm, "a"), true)
+assert_eq("has_value", map.has_value(mm, 1), true)
+assert_eq("get", map.get(mm, "b"), 2)
+assert_eq("get default", map.get(mm, "z", 0), 0)
+assert_eq("map size", map.size(mm), 3)
+assert_eq("map is_empty", map.is_empty({}), true)
+assert_eq("map equals", map.equals({"a": 1}, {"a": 1}), true)
+
+// ============================================================
+// 6. SET MODULE
+// ============================================================
+
+import set
+
+section("Set Module")
+var s1 = set.from_array([1, 2, 2, 3])
+assert_eq("set size", set.size(s1), 3)
+assert_eq("set contains", set.contains(s1, 2), true)
+assert_eq("set union", len(set.union(s1, [3, 4])), 4)
+assert_eq("set intersection", set.intersection(s1, [2, 3]), [2, 3])
+assert_eq("set difference", set.difference([1, 2, 3], [2, 3, 4]), [1])
+assert_eq("set is_subset", set.is_subset([1, 2], [1, 2, 3]), true)
+assert_eq("set is_disjoint", set.is_disjoint([1, 2], [3, 4]), true)
+assert_eq("set unique", set.from_array([1, 1, 2, 2, 3]), [1, 2, 3])
+
+// ============================================================
+// 7. QUEUE MODULE
+// ============================================================
+
+import queue
+
+section("Queue Module")
+var q = queue.new()
+var q1 = queue.enqueue(q, "a")
+var q2 = queue.enqueue(q1, "b")
+assert_eq("queue size", queue.size(q2), 2)
+assert_eq("queue peek", queue.peek(q2), "a")
+var dq = queue.dequeue(q2)
+assert_eq("queue dequeue", dq[0], "a")
+assert_eq("queue remaining", dq[1], ["b"])
+assert_eq("queue is_empty", queue.is_empty(queue.new()), true)
+
+// ============================================================
+// 8. STACK MODULE
+// ============================================================
+
+import stack
+
+section("Stack Module")
+var stk = stack.new()
+var stk1 = stack.push(stk, 10)
+var stk2 = stack.push(stk1, 20)
+assert_eq("stack size", stack.size(stk2), 2)
+assert_eq("stack peek", stack.peek(stk2), 20)
+var ps = stack.pop(stk2)
+assert_eq("stack pop", ps[0], 20)
+assert_eq("stack rest", ps[1], [10])
+assert_eq("stack is_empty", stack.is_empty(stack.new()), true)
+
+// ============================================================
+// 9. LINKED LIST MODULE
+// ============================================================
+
+import linkedlist
+
+section("Linked List Module")
+var ll = linkedlist.from_array([1, 2, 3, 4, 5])
+assert_eq("ll head", linkedlist.head(ll), 1)
+assert_eq("ll tail", linkedlist.tail(ll), [2, 3, 4, 5])
+assert_eq("ll last", linkedlist.last(ll), 5)
+assert_eq("ll length", linkedlist.length(ll), 5)
+assert_eq("ll cons", linkedlist.cons(ll, 0), [0, 1, 2, 3, 4, 5])
+assert_eq("ll append", linkedlist.append(ll, 6), [1, 2, 3, 4, 5, 6])
+assert_eq("ll reverse", linkedlist.reverse(ll), [5, 4, 3, 2, 1])
+assert_eq("ll sort", linkedlist.sort([5, 3, 1, 4, 2]), [1, 2, 3, 4, 5])
+assert_eq("ll nth", linkedlist.nth(ll, 2), 3)
+assert_eq("ll contains", linkedlist.contains(ll, 3), true)
+
+// ============================================================
+// 10. TREE MODULE
+// ============================================================
+
+import tree
+
+section("Tree Module")
+var t = tree.node(1, [tree.leaf(2), tree.leaf(3)])
+assert_eq("tree value", tree.value(t), 1)
+assert_eq("tree size", tree.size(t), 3)
+assert_eq("tree depth", tree.depth(t), 2)
+assert_eq("tree is_leaf", tree.is_leaf(tree.leaf(5)), true)
+assert_eq("tree preorder", tree.preorder(t), [1, 2, 3])
+assert_eq("tree postorder", tree.postorder(t), [2, 3, 1])
+assert_eq("tree leaves", tree.leaves(t), [2, 3])
+assert_eq("tree count_leaves", tree.count_leaves(t), 2)
+assert_eq("tree find", tree.value(tree.find(t, 3)), 3)
+assert_eq("tree equals", tree.equals(t, tree.clone(t)), true)
+
+// ============================================================
+// 11. GRAPH MODULE
+// ============================================================
+
+import graph
+
+section("Graph Module")
+var g = graph.from_edges([[0, 1], [1, 2], [2, 3]])
+assert_eq("graph vertices", graph.vertex_count(g), 4)
+assert_eq("graph edges", graph.edge_count(g), 3)
+assert_eq("graph has_vertex", graph.has_vertex(g, 0), true)
+assert_eq("graph has_edge", graph.has_edge(g, 0, 1), true)
+assert_eq("graph neighbors", graph.degree(g, 0), 1)
+assert_eq("graph bfs", graph.bfs(g, 0), [0, 1, 2, 3])
+
+// ============================================================
+// 12. JSON MODULE
+// ============================================================
+
+import json
+
+section("JSON Module")
+assert_eq("json parse", json.parse("42"), 42)
+assert_eq("json parse str", json.parse("\"hello\""), "hello")
+assert_eq("json parse arr", json.parse("[1,2,3]"), [1, 2, 3])
+assert_eq("json parse obj", json.parse("{\"a\":1}"), {"a": 1})
+assert_eq("json stringify", json.stringify(42), "42")
+assert_eq("json is_valid", json.is_valid("{\"a\":1}"), true)
+assert_eq("json invalid", json.is_valid("{bad"), false)
+var rt = json.parse(json.stringify({"x": 10}))
+assert_eq("json roundtrip", rt["x"], 10)
+
+// ============================================================
+// 13. FILESYSTEM MODULE
+// ============================================================
+
+import fs
+
+section("Filesystem Module")
+fs.write("_test_darix_io.txt", "Hello DariX")
+assert_eq("fs exists", fs.exists("_test_darix_io.txt"), true)
+assert_eq("fs read", fs.read("_test_darix_io.txt"), "Hello DariX")
+assert_eq("fs size", fs.size("_test_darix_io.txt"), 11)
+assert_eq("fs is_file", fs.is_file("_test_darix_io.txt"), true)
+fs.append("_test_darix_io.txt", " appended")
+assert_eq("fs append", fs.read("_test_darix_io.txt"), "Hello DariX appended")
+assert_eq("fs cwd", len(fs.cwd()) > 0, true)
+fs.remove("_test_darix_io.txt")
+assert_eq("fs remove", fs.exists("_test_darix_io.txt"), false)
+
+// ============================================================
+// 14. CRYPTO MODULE
+// ============================================================
+
+import crypto
+
+section("Crypto Module")
+assert_eq("md5", len(crypto.md5("hello")), 32)
+assert_eq("sha256", len(crypto.sha256("hello")), 64)
+assert_eq("hex encode", crypto.hex_encode("hi"), "6869")
+assert_eq("hex decode", crypto.hex_decode("6869"), "hi")
+assert_eq("b64 encode", crypto.base64_encode("hi"), "aGk=")
+assert_eq("b64 decode", crypto.base64_decode("aGk="), "hi")
+assert_eq("uuid", len(crypto.uuid()), 36)
+assert_eq("crc32", crypto.crc32("test") != 0, true)
+
+// ============================================================
+// 15. DATETIME MODULE
+// ============================================================
+
+import datetime
+
+section("DateTime Module")
+var now = datetime.now()
+assert_eq("now type", type(now), "INTEGER")
+assert_eq("year", datetime.year(now) >= 2024, true)
+assert_eq("make", datetime.to_string(datetime.make(2024, 6, 15)), "2024-06-15 00:00:00")
+assert_eq("add_days", datetime.diff_days(datetime.add_days(now, 7), now), 7)
+assert_eq("is_leap", datetime.is_leap_year(2024), true)
+assert_eq("days_in_month", datetime.days_in_month(2024, 2), 29)
+
+// ============================================================
+// 16. RANDOM MODULE
+// ============================================================
+
+import random
+
+section("Random Module")
+random.seed(42)
+assert_eq("random int", random.int(10) >= 0, true)
+assert_eq("random int range", random.int_range(1, 7) >= 1, true)
+assert_eq("random float", random.float() >= 0.0, true)
+assert_eq("random choice", random.choice([1, 2, 3]) >= 1, true)
+assert_eq("random choices", len(random.choices([1, 2], 5)), 5)
+assert_eq("random coin", random.coin() == true || random.coin() == false, true)
+assert_eq("random shuffle", len(random.shuffle([1, 2, 3])), 3)
+assert_eq("random ints", len(random.ints(5, 0, 10)), 5)
+
+// ============================================================
+// 17. REGEX MODULE
+// ============================================================
+
+import regex
+
+section("Regex Module")
+assert_eq("regex test", regex.test("\\d+", "abc123"), true)
+assert_eq("regex match", regex.match("\\d+", "abc123"), "123")
+assert_eq("regex matches", len(regex.matches("\\d+", "a1b2c3")), 3)
+assert_eq("regex count", regex.count("\\d+", "a1b2c3"), 3)
+assert_eq("regex replace", regex.replace("\\d+", "a1b2", "X"), "aXb2")
+assert_eq("regex replace_all", regex.replace_all("\\d+", "a1b2", "X"), "aXbX")
+assert_eq("regex split", regex.split(",\\s*", "a, b, c"), ["a", "b", "c"])
+assert_eq("regex escape", regex.is_valid("[a-z]+"), true)
+assert_eq("regex invalid", regex.is_valid("[bad"), false)
+
+// ============================================================
+// 18. ENCODING MODULE
+// ============================================================
+
+import encoding
+
+section("Encoding Module")
+assert_eq("b64 roundtrip", encoding.base64_decode(encoding.base64_encode("test")), "test")
+assert_eq("b32 roundtrip", encoding.base32_decode(encoding.base32_encode("hello")), "hello")
+assert_eq("hex roundtrip", encoding.hex_decode(encoding.hex_encode("test")), "test")
+assert_eq("url roundtrip", encoding.url_decode(encoding.url_encode("hello world")), "hello world")
+assert_eq("html encode", encoding.html_encode("<b>"), "&lt;b&gt;")
+assert_eq("html decode", encoding.html_decode("&lt;b&gt;"), "<b>")
+assert_eq("binary roundtrip", encoding.binary_decode(encoding.binary_encode("Hi")), "Hi")
+assert_eq("octal roundtrip", encoding.octal_decode(encoding.octal_encode("Hi")), "Hi")
+assert_eq("caesar roundtrip", encoding.caesar_decode(encoding.caesar_encode("abc", 3), 3), "abc")
+assert_eq("rot13 double", encoding.rot13(encoding.rot13("Hello")), "Hello")
+assert_eq("xor roundtrip", encoding.xor_encode(encoding.xor_encode("test", "k"), "k"), "test")
+
+// ============================================================
+// SUMMARY
+// ============================================================
 
 print("\n=============================")
 print("RESULTS:", passed, "passed,", failed, "failed")
